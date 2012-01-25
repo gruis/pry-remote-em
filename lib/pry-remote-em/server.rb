@@ -7,10 +7,10 @@ module PryRemoteEm
     include EM::Protocols::LineText2
 
     class << self
-      def run(obj, host = DEFHOST, port = DEFPORT)
+      def run(obj, host = DEFHOST, port = DEFPORT, opts = {:tls => false})
         tries = :auto == port ? 100.tap{ port = DEFPORT } : 1
         begin
-          EM.start_server(host, port, PryRemoteEm::Server) do |pre|
+          EM.start_server(host, port, PryRemoteEm::Server, opts) do |pre|
             Fiber.new {
               begin
                 Pry.start(obj, :input => pre, :output => pre)
@@ -27,23 +27,33 @@ module PryRemoteEm
           end
           raise e
         end
-        Kernel.puts "[pry-remote-em] listening for connections on pryem://#{host}:#{port}/"
+        scheme = opts[:tls] ? 'pryems' : 'pryem'
+        Kernel.puts "[pry-remote-em] listening for connections on #{scheme}://#{host}:#{port}/"
       end # run(obj, host = DEFHOST, port = DEFPORT)
     end # class << self
 
+    def initialize(opts = {:tls => false})
+      @opts = opts
+    end
 
 
     def post_init
       @buffer = []
       Pry.config.pager, @old_pager = false, Pry.config.pager
       Pry.config.system, @old_system = PryRemoteEm::Server::System, Pry.config.system
-      # TODO negotiation TLS
-      #      start_tls(:private_key_file => '/tmp/server.key', :cert_chain_file => '/tmp/server.crt', :verify_peer => false)
-      #      https://github.com/simulacre/pry-remote-em/issues/4
       # TODO authenticate user https://github.com/simulacre/pry-remote-em/issues/5
       port, ip = Socket.unpack_sockaddr_in(get_peername)
       Kernel.puts "[pry-remote-em] received client connection from #{ip}:#{port}"
-      send_data(JSON.dump({:g => PryRemoteEm::GREETING}))
+      send_data(JSON.dump({:g => "PryRemoteEm #{VERSION} #{@opts[:tls] ? 'pryems' : 'pryem'}"}))
+      start_tls if @opts[:tls]
+    end
+
+    def ssl_handshake_completed
+      Kernel.puts "[pry-remote-em] ssl connection established"
+    end
+
+    def start_tls
+      super(@opts[:tls].is_a?(Hash) ? @opts[:tls] : {})
     end
 
     def unbind

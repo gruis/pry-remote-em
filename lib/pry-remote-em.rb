@@ -7,12 +7,11 @@ module PryRemoteEm
   DEFPORT   = 6462
   DELIM     = ']]>]]><[[<[['
   NEGOTIMER = 15
-  GREETING  = "PryRemoteEm #{VERSION}"
 end
 
 
 class Object
-  def remote_pry_em(host = PryRemoteEm::DEFHOST, port = PryRemoteEm::DEFPORT)
-    PryRemoteEm::Server.run(self, host, port)
+  def remote_pry_em(host = PryRemoteEm::DEFHOST, port = PryRemoteEm::DEFPORT, opts = {:tls => false})
+    PryRemoteEm::Server.run(self, host, port, opts)
   end
 end

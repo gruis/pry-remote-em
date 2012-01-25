@@ -1,9 +1,14 @@
 require 'readline'
+require 'uri'
 require 'pry-remote-em'
 
 module PryRemoteEm
   module Client
     include EM::Deferrable
+
+    def initialize(opts = {})
+      @opts = opts
+    end
 
     def post_init
       @buffer  = ""
@@ -13,6 +18,17 @@ module PryRemoteEm
       @nego_timer = EM::Timer.new(PryRemoteEm::NEGOTIMER) do
         fail("[pry-remote-em] server didn't finish negotiation within #{PryRemoteEm::NEGOTIMER} seconds; terminating")
       end
+    end
+
+    def connection_completed
+      # if @opts[:tls]
+      #   Kernel.puts "[pry-remote-em] negotiating TLS"
+      #   start_tls
+      # end
+    end
+
+    def ssl_handshake_completed
+      Kernel.puts "[pry-remote-em] TLS connection established"
     end
 
     def receive_data(d)
@@ -37,10 +53,15 @@ module PryRemoteEm
 
       elsif j['g']
         Kernel.puts "[pry-remote-em] remote is #{j['g']}"
+        name, version, scheme = j['g'].split(" ", 3)
         # TODO parse version and compare against a Gem style matcher
-        if j['g'] == PryRemoteEm::GREETING
+        if version == PryRemoteEm::VERSION
+          if scheme.nil? || scheme != (reqscheme = @opts[:tls] ? 'pryems' : 'pryem')
+            return fail("[pry-remote-em] server doesn't support requried scheme #{reqscheme.dump}")
+          end
           @nego_timer.cancel
           @negotiated = true
+          Kernel.puts("[pry-remote-em] negotiating TLS").tap { start_tls } if @opts[:tls]
         else
           fail("incompatible version")
         end
@@ -48,6 +69,10 @@ module PryRemoteEm
       else
         warn "received unexpected data: #{j}"
       end
+    end
+
+    def start_tls
+      super(@opts[:tls].is_a?(Hash) ? @opts[:tls] : {})
     end
 
     def unbind

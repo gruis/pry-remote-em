@@ -7,12 +7,12 @@ require 'pry-remote-em/client'
 
 uri = ARGV[0] || "pryem://localhost:#{PryRemoteEm::DEFPORT}"
 uri = URI.parse(uri)
-unless uri.scheme == "pryem"
-  abort "only pryem URIs are currently supported\n usage: pryem://127.0.0.1:#{PryRemoteEm::DEFPORT}" 
+unless %w(pryem pryems).include?(uri.scheme)
+  abort "only pryem URIs are currently supported\n usage: pryem(s)://127.0.0.1:#{PryRemoteEm::DEFPORT}" 
 end
 
 EM.run do
-  EM.connect(uri.host, uri.port, PryRemoteEm::Client) do |c|
+  EM.connect(uri.host || PryRemoteEm::DEFHOST, uri.port || PryRemoteEm::DEFPORT, PryRemoteEm::Client, :tls => uri.scheme == "pryems") do |c|
     c.callback { EM.stop }
     c.errback do |e| 
       puts "[pry-remote-em] connection failed\n#{e}"
