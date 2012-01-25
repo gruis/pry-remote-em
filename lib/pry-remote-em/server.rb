@@ -62,7 +62,8 @@ module PryRemoteEm
     alias :write :print
 
     def puts(data = "")
-      print(data[0] == "\n" ? data : data + "\n")
+      s = data.to_s
+      print(s[0] == "\n" ? s : s + "\n")
     end
 
     def send_data(s)
