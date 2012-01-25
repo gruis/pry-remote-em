@@ -17,7 +17,7 @@ module PryRemoteEm
             end
           }.resume
         end
-        Kernel.puts "[pry-remote-em] listening for connections on #{DEFHOST}:#{DEFPORT}"
+        Kernel.puts "[pry-remote-em] listening for connections on pryem://#{DEFHOST}:#{DEFPORT}/"
       end # run(obj, host = DEFHOST, port = DEFPORT)
     end # class << self
 

@@ -32,13 +32,13 @@ EM.run { Foo.new 10, 20 }
 Running it will print out a message telling you Pry is waiting for a
 program to connect itself to it:
 
-     [pry-remote-em] listening for connections on localhost:6462
+     [pry-remote-em] listening for connections on pryem://localhost:6462/
 
 You can then connect to the pry session using ``pry-remote-em``:
 
     $ pry-remote-em
-    [pry-remote-em] client connected to 127.0.0.1:6462
-    [pry-remote-em] remote is PryRemoteEm 0.0.0
+    [pry-remote-em] client connected to pryem://127.0.0.1:6462/
+    [pry-remote-em] remote is PryRemoteEm 0.1.0
     [1] pry(#<Foo>)> stat
     Method Information:
     --
@@ -68,8 +68,8 @@ You can then connect to the pry session using ``pry-remote-em``:
     [pry-remote-em] session terminated
 
     $ pry-remote-em
-    [pry-remote-em] client connected to 127.0.0.1:6462
-    [pry-remote-em] remote is PryRemoteEm 0.0.0
+    [pry-remote-em] client connected to pryem://127.0.0.1:6462/
+    [pry-remote-em] remote is PryRemoteEm 0.1.0
     [1] pry(#<Foo>)> x
     => 12
 
