@@ -8,6 +8,7 @@ module PryRemoteEm
 
     class << self
       def run(obj, host = DEFHOST, port = DEFPORT)
+        # @todo support :auto for port - https://github.com/simulacre/pry-remote-em/issues/3
         EM.start_server(host, port, PryRemoteEm::Server) do |pre|
           Fiber.new {
             begin
@@ -29,7 +30,8 @@ module PryRemoteEm
       Pry.config.system, @old_system = PryRemoteEm::Server::System, Pry.config.system
       # TODO negotiation TLS
       #      start_tls(:private_key_file => '/tmp/server.key', :cert_chain_file => '/tmp/server.crt', :verify_peer => false)
-      # TODO authenticate user
+      #      https://github.com/simulacre/pry-remote-em/issues/4
+      # TODO authenticate user https://github.com/simulacre/pry-remote-em/issues/5
       port, ip = Socket.unpack_sockaddr_in(get_peername)
       Kernel.puts "[pry-remote-em] received client connection from #{ip}:#{port}"
       send_data(JSON.dump({:g => PryRemoteEm::GREETING}))
