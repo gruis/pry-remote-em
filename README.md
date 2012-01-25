@@ -12,21 +12,23 @@ It's based off of [Mon-Ouie's](https://github.com/Mon-Ouie) [pry-remote](https:/
 
 # Installation
 
-    gem install pry-remote-em
+```shell
+gem install pry-remote-em
+```
 
 # Usage
 
-Here's a program starting pry-remote-em:
+```ruby
+require 'pry-remote-em/server'
 
-    require 'pry-remote-em/server'
+class Foo
+  def initialize(x, y)
+    binding.remote_pry_em
+  end
+end
 
-    class Foo
-      def initialize(x, y)
-        binding.remote_pry_em
-      end
-    end
-
-    EM.run { Foo.new 10, 20 } 
+EM.run { Foo.new 10, 20 } 
+```
 
 Running it will print out a message telling you Pry is waiting for a
 program to connect itself to it:
