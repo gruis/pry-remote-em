@@ -70,7 +70,7 @@ module PryRemoteEm
     end
 
     System = proc do |output, cmd, _|
-      output.write("shell commands are not yet supported")
+      output.puts("shell commands are not yet supported")
     end
   end # module::Server
 end # module::PryRemoteEm
