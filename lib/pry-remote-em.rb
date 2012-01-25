@@ -5,7 +5,6 @@ require 'json'
 module PryRemoteEm
   DEFHOST   = 'localhost'
   DEFPORT   = 6462
-  DELIM     = ']]>]]><[[<[['
   NEGOTIMER = 15
 end
 

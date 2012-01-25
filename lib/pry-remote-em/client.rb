@@ -1,17 +1,19 @@
 require 'readline'
 require 'uri'
 require 'pry-remote-em'
+require 'pry-remote-em/json-proto'
+require "fiber"
 
 module PryRemoteEm
   module Client
     include EM::Deferrable
+    include JsonProto
 
     def initialize(opts = {})
       @opts = opts
     end
 
     def post_init
-      @buffer  = ""
       return fail("connection was not established") unless get_peername
       port, ip = Socket.unpack_sockaddr_in(get_peername)
       Kernel.puts "[pry-remote-em] client connected to pryem://#{ip}:#{port}/"
@@ -20,33 +22,23 @@ module PryRemoteEm
       end
     end
 
-    def connection_completed
-      # if @opts[:tls]
-      #   Kernel.puts "[pry-remote-em] negotiating TLS"
-      #   start_tls
-      # end
+    def connection_active
+      Readline.completion_proc = lambda do |str|
+        @waiting = Fiber.current
+        send_data({:c => str})
+        return Fiber.yield
+      end
     end
 
     def ssl_handshake_completed
       Kernel.puts "[pry-remote-em] TLS connection established"
     end
 
-    def receive_data(d)
-      return unless d && d.length > 0
-      if six = d.index(PryRemoteEm::DELIM)
-        @buffer << d[0...six]
-        j = JSON.load(@buffer)
-        @buffer.clear
-        receive_json(j)
-        receive_data(d[(six + PryRemoteEm::DELIM.length)..-1])
-      else
-        @buffer << d
-      end
-    end
-
     def receive_json(j)
       if j['p']
-        send_data(Readline.readline(j['p'], true) + "\n") if @negotiated && !@unbound
+        if @negotiated && !@unbound
+          send_data(Readline.readline(j['p'], true))
+        end
 
       elsif j['d']
         print j['d']
@@ -62,9 +54,14 @@ module PryRemoteEm
           @nego_timer.cancel
           @negotiated = true
           Kernel.puts("[pry-remote-em] negotiating TLS").tap { start_tls } if @opts[:tls]
+          connection_active
         else
           fail("incompatible version")
         end
+
+      elsif j['c']
+        @waiting, f = nil, @waiting
+        Fiber.new { f.resume(j['c']) }.resume if f
 
       else
         warn "received unexpected data: #{j}"
