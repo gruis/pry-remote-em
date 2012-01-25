@@ -1,18 +1,17 @@
 # What is it?
 
-A way to start Pry remotely and to connect to it in EventMachine. This allows to
-access the state of the running program from anywhere.
+A way to start Pry remotely in EventMachine and to connect to it. This provides access to the state of the running program from anywhere.
 
 It's based off of [Mon-Ouie's](https://github.com/Mon-Ouie) [pry-remote](https://github.com/Mon-Ouie/pry-remote) for DRb.
 
 # Compatibility
 
-  Ruby 1.9 or any other VM with support for Fibers is required.
+  MRI 1.9 or any other VM with support for Fibers is required.
 
 
 # Installation
 
-```shell
+```bash
 gem install pry-remote-em
 ```
 
@@ -35,7 +34,7 @@ program to connect itself to it:
 
      [pry-remote-em] listening for connections on localhost:6462
 
-You can then connect yourself using ``pry-remote-em``:
+You can then connect to the pry session using ``pry-remote-em``:
 
     $ pry-remote-em
     [pry-remote-em] client connected to 127.0.0.1:6462
