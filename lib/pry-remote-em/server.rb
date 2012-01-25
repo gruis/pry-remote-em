@@ -8,17 +8,26 @@ module PryRemoteEm
 
     class << self
       def run(obj, host = DEFHOST, port = DEFPORT)
-        # @todo support :auto for port - https://github.com/simulacre/pry-remote-em/issues/3
-        EM.start_server(host, port, PryRemoteEm::Server) do |pre|
-          Fiber.new {
-            begin
-              Pry.start(obj, :input => pre, :output => pre)
-            ensure
-              pre.close_connection
-            end
-          }.resume
+        tries = :auto == port ? 100.tap{ port = DEFPORT } : 1
+        begin
+          EM.start_server(host, port, PryRemoteEm::Server) do |pre|
+            Fiber.new {
+              begin
+                Pry.start(obj, :input => pre, :output => pre)
+              ensure
+                pre.close_connection
+              end
+            }.resume
+          end
+        rescue => e
+          if e.message.include?('port is in use') && tries >= 1
+            tries -= 1
+            port += 1
+            retry
+          end
+          raise e
         end
-        Kernel.puts "[pry-remote-em] listening for connections on pryem://#{DEFHOST}:#{DEFPORT}/"
+        Kernel.puts "[pry-remote-em] listening for connections on pryem://#{host}:#{port}/"
       end # run(obj, host = DEFHOST, port = DEFPORT)
     end # class << self
 
