@@ -76,8 +76,26 @@ You can then connect to the pry session using ``pry-remote-em``:
     [2] pry(#<Foo>)> exit
     [pry-remote-em] session terminated
 
+# Features
+
+## TLS Encryption
+  
+  When creating a server pass the :tls => true option to enable TLS. If
+you pass a Hash, e.g. ``:tls => {:private_key_file => '/tmp/server.key'}`` it will be used to configure the internal TLS handler. 
+  See [EventMachine::Connection#start_tls](http://eventmachine.rubyforge.org/EventMachine/Connection.html#M000296) for the available options.
+
+ To start the command line client in TLS mode pass it a pryems URL instead of a pryem URL.
+
+```bash
+  $ bin/pry-remote-em pryems:///
+  [pry-remote-em] client connected to pryem://127.0.0.1:6462/
+  [pry-remote-em] remote is PryRemoteEm 0.1.0 pryems
+  [pry-remote-em] negotiating TLS
+  [pry-remote-em] TLS connection established
+  [1] pry(#<Hash>)> 
+```
+
 # Missing Features
 
   - User authentication
-  - TLS encryption
   - Tab completion
