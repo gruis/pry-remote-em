@@ -22,11 +22,9 @@ module PryRemoteEm
     end # class << self
 
 
-    attr_reader :output
 
     def post_init
       @buffer = []
-      @output = self
       Pry.config.pager, @old_pager = false, Pry.config.pager
       Pry.config.system, @old_system = PryRemoteEm::Server::System, Pry.config.system
       # TODO negotiation TLS
@@ -49,7 +47,7 @@ module PryRemoteEm
         f, @waiting = @waiting, nil
         f.resume(@buffer.shift)
       end
-    end # receive_line(data)
+    end
 
     def readline(prompt)
       send_data(JSON.dump({:p => prompt}))
@@ -69,7 +67,7 @@ module PryRemoteEm
 
     def send_data(s)
       super(s + PryRemoteEm::DELIM)
-    end # send_data(s)
+    end
 
     System = proc do |output, cmd, _|
       output.write("shell commands are not yet supported")
