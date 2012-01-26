@@ -63,7 +63,6 @@ module PryRemoteEm
     end
 
     def receive_json(j)
-      $stderr.puts "received: #{j.inspect}"
       if j['d']
         @lines.push(*j['d'].split("\n"))
         if @waiting

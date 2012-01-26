@@ -2,9 +2,10 @@ require 'uri'
 require 'pry-remote-em'
 require 'pry-remote-em/json-proto'
 require "fiber"
-require "coolline"
-require "coderay"
-
+#require "readline"   # doesn't work with Fiber.yield
+#  - /Users/caleb/src/pry-remote-em/lib/pry-remote-em/client.rb:45:in `yield': fiber called across stack rewinding barrier (FiberError)
+require "rb-readline" # doesn't provide vi-mode support :(
+                      # https://github.com/luislavena/rb-readline/issues/21
 
 module PryRemoteEm
   module Client
@@ -20,7 +21,7 @@ module PryRemoteEm
             yield(e) if block_given?
           end
         end
-      end # start(host = PryRemoteEm::DEFHOST, port = PryRemoteEM::DEFPORT, opts = {:tls => false})
+      end
     end # class << self
 
     def initialize(opts = {})
@@ -34,16 +35,7 @@ module PryRemoteEm
       @nego_timer = EM::Timer.new(PryRemoteEm::NEGOTIMER) do
         fail("[pry-remote-em] server didn't finish negotiation within #{PryRemoteEm::NEGOTIMER} seconds; terminating")
       end
-
-      @cool = Coolline.new do |c|
-        c.completion_proc = lambda do |*args|
-          word = c.completed_word
-          auto_complete(word)
-        end
-        c.transform_proc = proc do
-          CodeRay.scan(c.line, :ruby).term
-        end
-      end
+      Readline.completion_proc = method(:auto_complete)
     end
 
     def auto_complete(word)
@@ -52,14 +44,11 @@ module PryRemoteEm
       return Fiber.yield
     end
 
-    def ssl_handshake_completed
-      Kernel.puts "[pry-remote-em] TLS connection established"
-    end
-
     def receive_json(j)
       if j['p']
         if @negotiated && !@unbound
-          Fiber.new { send_data(@cool.readline(j['p'])) }.resume
+          # Is it better just to wrap receive_data in a Fiber?
+          Fiber.new { send_data(Readline.readline(j['p'], true)) }.resume
         end
 
       elsif j['d']
@@ -82,12 +71,15 @@ module PryRemoteEm
 
       elsif j['c']
         @waiting, f = nil, @waiting
-        # show possible completions
-        Kernel.puts "\r" + j['c'].join(", ") + (" " * 35) unless j['c'].empty? # TODO properly clear the line based on previous contents
         f.resume(j['c']) if f
+
       else
         warn "received unexpected data: #{j}"
       end
+    end
+
+    def ssl_handshake_completed
+      Kernel.puts "[pry-remote-em] TLS connection established"
     end
 
     def start_tls
