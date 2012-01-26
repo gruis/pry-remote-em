@@ -1,13 +1,27 @@
-require 'readline'
 require 'uri'
 require 'pry-remote-em'
 require 'pry-remote-em/json-proto'
 require "fiber"
+require "coolline"
+require "coderay"
+
 
 module PryRemoteEm
   module Client
     include EM::Deferrable
     include JsonProto
+
+    class << self
+      def start(host = PryRemoteEm::DEFHOST, port = PryRemoteEM::DEFPORT, opts = {:tls => false})
+        EM.connect(host || PryRemoteEm::DEFHOST, port || PryRemoteEm::DEFPORT, PryRemoteEm::Client, opts) do |c|
+          c.callback { yield if block_given? }
+          c.errback do |e|
+            puts "[pry-remote-em] connection failed\n#{e}"
+            yield(e) if block_given?
+          end
+        end
+      end # start(host = PryRemoteEm::DEFHOST, port = PryRemoteEM::DEFPORT, opts = {:tls => false})
+    end # class << self
 
     def initialize(opts = {})
       @opts = opts
@@ -20,14 +34,22 @@ module PryRemoteEm
       @nego_timer = EM::Timer.new(PryRemoteEm::NEGOTIMER) do
         fail("[pry-remote-em] server didn't finish negotiation within #{PryRemoteEm::NEGOTIMER} seconds; terminating")
       end
+
+      @cool = Coolline.new do |c|
+        c.completion_proc = lambda do |*args|
+          word = c.completed_word
+          auto_complete(word)
+        end
+        c.transform_proc = proc do
+          CodeRay.scan(c.line, :ruby).term
+        end
+      end
     end
 
-    def connection_active
-      Readline.completion_proc = lambda do |str|
-        @waiting = Fiber.current
-        send_data({:c => str})
-        return Fiber.yield
-      end
+    def auto_complete(word)
+      @waiting = Fiber.current
+      send_data({:c => word})
+      return Fiber.yield
     end
 
     def ssl_handshake_completed
@@ -37,7 +59,9 @@ module PryRemoteEm
     def receive_json(j)
       if j['p']
         if @negotiated && !@unbound
-          send_data(Readline.readline(j['p'], true))
+          Fiber.new {
+            send_data(@cool.readline(j['p']))
+          }.resume
         end
 
       elsif j['d']
@@ -54,15 +78,13 @@ module PryRemoteEm
           @nego_timer.cancel
           @negotiated = true
           Kernel.puts("[pry-remote-em] negotiating TLS").tap { start_tls } if @opts[:tls]
-          connection_active
         else
           fail("incompatible version")
         end
 
       elsif j['c']
         @waiting, f = nil, @waiting
-        Fiber.new { f.resume(j['c']) }.resume if f
-
+        f.resume(j['c']) if f
       else
         warn "received unexpected data: #{j}"
       end

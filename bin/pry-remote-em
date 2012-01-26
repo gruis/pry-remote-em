@@ -12,11 +12,7 @@ unless %w(pryem pryems).include?(uri.scheme)
 end
 
 EM.run do
-  EM.connect(uri.host || PryRemoteEm::DEFHOST, uri.port || PryRemoteEm::DEFPORT, PryRemoteEm::Client, :tls => uri.scheme == "pryems") do |c|
-    c.callback { EM.stop }
-    c.errback do |e| 
-      puts "[pry-remote-em] connection failed\n#{e}"
-      EM.stop
-    end
+  PryRemoteEm::Client.start(uri.host, uri.port, :tls => uri.scheme == 'pryems') do |e|
+    EM.stop
   end 
 end
