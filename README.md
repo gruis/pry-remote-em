@@ -97,5 +97,8 @@ you pass a Hash, e.g. ``:tls => {:private_key_file => '/tmp/server.key'}`` it wi
 
 # Missing Features
 
-  - User authentication
-  - Tab completion
+  - User authentication [ticket](https://github.com/simulacre/pry-remote-em/issues/5)
+  - Tab completion [ticket](https://github.com/simulacre/pry-remote-em/issues/9)
+  - Paging [ticket](https://github.com/simulacre/pry-remote-em/issues/10)
+  - AutoDiscovery/Broker [ticket](https://github.com/simulacre/pry-remote-em/issues/11)
+  - HTTP Transport [ticket](https://github.com/simulacre/pry-remote-em/issues/12)
