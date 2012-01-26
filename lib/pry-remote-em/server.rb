@@ -91,6 +91,10 @@ module PryRemoteEm
       super(s + PryRemoteEm::DELIM)
     end
 
+    def tty?
+      true # might be a very bad idea ....
+    end
+
     System = proc do |output, cmd, _|
       output.puts("shell commands are not yet supported")
     end
