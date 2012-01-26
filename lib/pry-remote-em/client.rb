@@ -24,6 +24,8 @@ module PryRemoteEm
 
     def initialize(opts = {})
       @opts = opts
+      @user = opts[:user]
+      @pass = opts[:pass]
     end
 
     def post_init
@@ -43,19 +45,23 @@ module PryRemoteEm
     end
 
     def receive_json(j)
-      if j['p']
+      if j['p'] # prompt
         if @negotiated && !@unbound
           # Is it better just to wrap receive_data in a Fiber?
           Fiber.new {
-            true until !(l = Readline.readline(j['p'], true)).empty?
-            send_data(l)
+            op = lambda {
+              true until !(l = Readline.readline(j['p'], true)).empty?
+              l
+            }
+            cb = lambda { |l| send_data(l) }
+            EM.defer(op, cb)
           }.resume
         end
 
-      elsif j['d']
+      elsif j['d'] # printable data
         print j['d']
 
-      elsif j['g']
+      elsif j['g'] # server banner
         Kernel.puts "[pry-remote-em] remote is #{j['g']}"
         name, version, scheme = j['g'].split(" ", 3)
         # TODO parse version and compare against a Gem style matcher
@@ -65,22 +71,34 @@ module PryRemoteEm
           end
           @nego_timer.cancel
           @negotiated = true
-          Kernel.puts("[pry-remote-em] negotiating TLS").tap { start_tls } if @opts[:tls]
+          !@opts[:tls] ? authenticate : Kernel.puts("[pry-remote-em] negotiating TLS").tap { start_tls }
         else
-          fail("incompatible version")
+          fail("[pry-remote-em] incompatible version #{version}")
         end
 
-      elsif j['c']
+      elsif j['c'] # tab completion response
         @waiting, f = nil, @waiting
         f.resume(j['c']) if f
 
+      elsif j.include?('a') # authentication demand
+        return fail j['a'] if j['a'].is_a?(String)
+        return authenticate if j['a']   == false
+        @authenticated = true if j['a'] == true
+
       else
-        warn "received unexpected data: #{j}"
+        warn "[pry-remote-em] received unexpected data: #{j.inspect}"
       end
     end
 
+    def authenticate
+      return fail("[pry-remote-em] user and pass required for authentication") unless @user && @pass
+      return fail("[pry-remote-em] can't authenticate before negotiation complete") unless @negotiated
+      send_data({:a => [@user, @pass]})
+    end # authenticate
+
     def ssl_handshake_completed
       Kernel.puts "[pry-remote-em] TLS connection established"
+      authenticate
     end
 
     def start_tls

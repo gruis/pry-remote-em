@@ -12,7 +12,8 @@ unless %w(pryem pryems).include?(uri.scheme)
 end
 
 EM.run do
-  PryRemoteEm::Client.start(uri.host, uri.port, :tls => uri.scheme == 'pryems') do |e|
-    EM.stop
-  end 
+  PryRemoteEm::Client.start(uri.host, uri.port, 
+                            :tls  => uri.scheme == 'pryems',
+                            :user => uri.user,
+                            :pass => uri.password) { |e| EM.stop }
 end
