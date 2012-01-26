@@ -1,10 +1,9 @@
 require 'pry'
 require 'pry-remote-em'
-require 'fiber'
 
 module PryRemoteEm
   module Server
-    include EM::Protocols::LineText2
+    include JsonProto
 
     class << self
       def run(obj, host = DEFHOST, port = DEFPORT, opts = {:tls => false})
@@ -36,15 +35,14 @@ module PryRemoteEm
       @opts = opts
     end
 
-
     def post_init
-      @buffer = []
+      @lines = []
       Pry.config.pager, @old_pager = false, Pry.config.pager
       Pry.config.system, @old_system = PryRemoteEm::Server::System, Pry.config.system
       # TODO authenticate user https://github.com/simulacre/pry-remote-em/issues/5
       port, ip = Socket.unpack_sockaddr_in(get_peername)
       Kernel.puts "[pry-remote-em] received client connection from #{ip}:#{port}"
-      send_data(JSON.dump({:g => "PryRemoteEm #{VERSION} #{@opts[:tls] ? 'pryems' : 'pryem'}"}))
+      send_data({:g => "PryRemoteEm #{VERSION} #{@opts[:tls] ? 'pryems' : 'pryem'}"})
       start_tls if @opts[:tls]
     end
 
@@ -62,23 +60,31 @@ module PryRemoteEm
       Kernel.puts "[pry-remote-em] remote session terminated"
     end
 
-    def receive_line(data)
-      @buffer.push(data)
-      if @waiting
-        f, @waiting = @waiting, nil
-        f.resume(@buffer.shift)
-      end
-    end
+    def receive_json(j)
+      if j['d']
+        @lines.push(*j['d'].split("\n"))
+        if @waiting
+          f, @waiting = @waiting, nil
+          f.resume(@lines.shift)
+        end
+      elsif j['c']
+        send_data({:c => @compl_proc.call(j['c'])})
+      else
+        warn "received unexpected data: #{j.inspect}"
+      end # j['d']
+    end # receive_json(j)
 
     def readline(prompt)
-      send_data(JSON.dump({:p => prompt}))
-      return @buffer.shift unless @buffer.empty?
+      send_data({:p => prompt})
+      return @lines.shift unless @lines.empty?
       @waiting = Fiber.current
       return Fiber.yield
     end
 
+    # Methods that make Server compatible with Pry
+
     def print(val)
-      send_data(JSON.dump({:d => val}))
+      send_data({:d => val})
     end
     alias :write :print
 
@@ -87,8 +93,12 @@ module PryRemoteEm
       print(s[0] == "\n" ? s : s + "\n")
     end
 
-    def send_data(s)
-      super(s + PryRemoteEm::DELIM)
+    def completion_proc=(compl)
+      @compl_proc = compl
+    end
+
+    def tty?
+      true # might be a very bad idea ....
     end
 
     def tty?

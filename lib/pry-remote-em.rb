@@ -1,11 +1,12 @@
 require 'pry-remote-em/version'
+require 'pry-remote-em/json-proto'
 require 'eventmachine'
 require 'json'
+require "fiber"
 
 module PryRemoteEm
   DEFHOST   = 'localhost'
   DEFPORT   = 6462
-  DELIM     = ']]>]]><[[<[['
   NEGOTIMER = 15
 end
 
