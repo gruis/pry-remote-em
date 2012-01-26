@@ -89,16 +89,38 @@ you pass a Hash, e.g. ``:tls => {:private_key_file => '/tmp/server.key'}`` it wi
 ```bash
   $ bin/pry-remote-em pryems:///
   [pry-remote-em] client connected to pryem://127.0.0.1:6462/
-  [pry-remote-em] remote is PryRemoteEm 0.1.0 pryems
+  [pry-remote-em] remote is PryRemoteEm 0.2.0 pryems
   [pry-remote-em] negotiating TLS
   [pry-remote-em] TLS connection established
   [1] pry(#<Hash>)> 
 ```
 
+## Tab Completion
+
+  Tab completion candidates will be retrieved from the server and
+presented on the client side.
+
+```ruby
+$ bin/pry-remote-em pryems:///
+[pry-remote-em] client connected to pryem://127.0.0.1:6462/
+[pry-remote-em] remote is PryRemoteEm 0.2.0 pryems
+[1] pry(#<Hash>)> key (^TAB ^TAB)
+key   key?  keys  
+[1] pry(#<Hash>)> keys
+=> [:encoding]
+```
+
 # Missing Features
 
   - User authentication [ticket](https://github.com/simulacre/pry-remote-em/issues/5)
-  - Tab completion [ticket](https://github.com/simulacre/pry-remote-em/issues/9)
   - Paging [ticket](https://github.com/simulacre/pry-remote-em/issues/10)
   - AutoDiscovery/Broker [ticket](https://github.com/simulacre/pry-remote-em/issues/11)
   - HTTP Transport [ticket](https://github.com/simulacre/pry-remote-em/issues/12)
+  - Shell Commands [ticket](https://github.com/simulacre/pry-remote-em/issues/15)
+  - Vi Mode editing - RbReadline doesn't support vi edit mode. I'm looking into contributing it. PryRemoteEm uses rb-readline because the STLIB version doesn't play nice with Fibers.
+
+
+# Issues
+
+ Please post any bug reports or feature requests on [Github](https://github.com/simulacre/pry-remote-em/issues)
+
