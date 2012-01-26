@@ -48,7 +48,10 @@ module PryRemoteEm
       if j['p']
         if @negotiated && !@unbound
           # Is it better just to wrap receive_data in a Fiber?
-          Fiber.new { send_data(Readline.readline(j['p'], true)) }.resume
+          Fiber.new {
+            true until !(l = Readline.readline(j['p'], true)).empty?
+            send_data(l)
+          }.resume
         end
 
       elsif j['d']
