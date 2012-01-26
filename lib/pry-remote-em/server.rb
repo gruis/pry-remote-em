@@ -8,6 +8,8 @@ module PryRemoteEm
     class << self
       def run(obj, host = DEFHOST, port = DEFPORT, opts = {:tls => false})
         tries = :auto == port ? 100.tap{ port = DEFPORT } : 1
+        # TODO raise a useful exception not RuntimeError
+        raise "root permission required for port below 1024 (#{port})" if port < 1024 && Process.euid != 0
         begin
           EM.start_server(host, port, PryRemoteEm::Server, opts) do |pre|
             Fiber.new {
