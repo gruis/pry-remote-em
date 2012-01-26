@@ -59,9 +59,7 @@ module PryRemoteEm
     def receive_json(j)
       if j['p']
         if @negotiated && !@unbound
-          Fiber.new {
-            send_data(@cool.readline(j['p']))
-          }.resume
+          Fiber.new { send_data(@cool.readline(j['p'])) }.resume
         end
 
       elsif j['d']
@@ -84,6 +82,8 @@ module PryRemoteEm
 
       elsif j['c']
         @waiting, f = nil, @waiting
+        # show possible completions
+        Kernel.puts "\r" + j['c'].join(", ") + (" " * 35) unless j['c'].empty? # TODO properly clear the line based on previous contents
         f.resume(j['c']) if f
       else
         warn "received unexpected data: #{j}"
