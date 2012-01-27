@@ -25,6 +25,9 @@ EM.run{
   obj.remote_pry_em('localhost', :auto, :tls => true, :auth => auth_hash)
   obj.remote_pry_em('localhost', :auto, :tls => true, :auth => auth_anon)
   obj.remote_pry_em('localhost', :auto, :tls => true, :auth => Authenticator.new(auth_hash))
+
+  obj.remote_pry_em('localhost', :auto, :auth => auth_hash)
+  obj.remote_pry_em('localhost', :auto)
 }
 
 # TODO use rspec

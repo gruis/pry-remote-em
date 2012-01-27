@@ -3,6 +3,7 @@
 $: << File.expand_path("../../lib", __FILE__)
 
 require 'uri'
+require 'highline'
 require 'pry-remote-em/client'
 
 uri = ARGV[0] || "pryem://localhost:#{PryRemoteEm::DEFPORT}"
@@ -11,9 +12,14 @@ unless %w(pryem pryems).include?(uri.scheme)
   abort "only pryem URIs are currently supported\n usage: pryem(s)://127.0.0.1:#{PryRemoteEm::DEFPORT}" 
 end
 
+tried = 0
+auth_proc = proc do
+  tried += 1
+  user   = uri.user || Readline.readline("user: ")
+  pass   = (!uri.password.nil? && tried <= 1) ? uri.password : HighLine.new.ask("#{user}'s password: ") { |q| q.echo = '*'}  
+  [user, pass]
+end
+
 EM.run do
-  PryRemoteEm::Client.start(uri.host, uri.port, 
-                            :tls  => uri.scheme == 'pryems',
-                            :user => uri.user,
-                            :pass => uri.password) { |e| EM.stop }
+  PryRemoteEm::Client.start(uri.host, uri.port, :auth=>auth_proc, :tls=>uri.scheme=='pryems') { |e| EM.stop }
 end

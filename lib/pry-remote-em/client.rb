@@ -24,8 +24,13 @@ module PryRemoteEm
 
     def initialize(opts = {})
       @opts = opts
-      @user = opts[:user]
-      @pass = opts[:pass]
+      if (a = opts[:auth])
+        if a.respond_to?(:call)
+          @auth = a
+        else
+          @auth = lambda { a }
+        end
+      end
     end
 
     def post_init
@@ -47,15 +52,7 @@ module PryRemoteEm
     def receive_json(j)
       if j['p'] # prompt
         if @negotiated && !@unbound
-          # Is it better just to wrap receive_data in a Fiber?
-          Fiber.new {
-            op = lambda {
-              true until !(l = Readline.readline(j['p'], true)).empty?
-              l
-            }
-            cb = lambda { |l| send_data(l) }
-            EM.defer(op, cb)
-          }.resume
+          Fiber.new { send_data(Readline.readline(j['p'], true)) }.resume
         end
 
       elsif j['d'] # printable data
@@ -71,7 +68,7 @@ module PryRemoteEm
           end
           @nego_timer.cancel
           @negotiated = true
-          !@opts[:tls] ? authenticate : Kernel.puts("[pry-remote-em] negotiating TLS").tap { start_tls }
+          start_tls if @opts[:tls]
         else
           fail("[pry-remote-em] incompatible version #{version}")
         end
@@ -91,17 +88,19 @@ module PryRemoteEm
     end
 
     def authenticate
-      return fail("[pry-remote-em] user and pass required for authentication") unless @user && @pass
+      return fail("[pry-remote-em] authentication required") unless @auth
       return fail("[pry-remote-em] can't authenticate before negotiation complete") unless @negotiated
-      send_data({:a => [@user, @pass]})
+      user, pass = @auth.call
+      return fail("[pry-remote-em] expected #{@auth} to return a user and password") unless user && pass
+      send_data({:a => [user, pass]})
     end # authenticate
 
     def ssl_handshake_completed
       Kernel.puts "[pry-remote-em] TLS connection established"
-      authenticate
     end
 
     def start_tls
+      Kernel.puts "[pry-remote-em] negotiating TLS"
       super(@opts[:tls].is_a?(Hash) ? @opts[:tls] : {})
     end
 

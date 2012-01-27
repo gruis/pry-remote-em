@@ -34,7 +34,8 @@ module PryRemoteEm
     end # class << self
 
     def initialize(opts = {:tls => false})
-      @opts = opts
+      @after_auth = []
+      @opts       = opts
       if (a = opts[:auth])
         if a.respond_to?(:call)
           return error("auth handler procs must take two arguments") unless a.method(:call).arity == 2
@@ -55,21 +56,17 @@ module PryRemoteEm
       port, ip        = Socket.unpack_sockaddr_in(get_peername)
       Kernel.puts "[pry-remote-em] received client connection from #{ip}:#{port}"
       send_data({:g => "PryRemoteEm #{VERSION} #{@opts[:tls] ? 'pryems' : 'pryem'}"})
-      start_tls if @opts[:tls]
+      @opts[:tls] ? start_tls : (@auth_required && send_data({:a => false}))
+    end
+
+    def start_tls
+      Kernel.puts "[pry-remote-em] starting TLS (#{peer_ip}:#{peer_port})"
+      super(@opts[:tls].is_a?(Hash) ? @opts[:tls] : {})
     end
 
     def ssl_handshake_completed
       Kernel.puts "[pry-remote-em] TLS connection established (#{peer_ip}:#{peer_port})"
-    end
-
-    def start_tls
-      super(@opts[:tls].is_a?(Hash) ? @opts[:tls] : {})
-    end
-
-    def unbind
-      Pry.config.pager = @old_pager
-      Pry.config.system = @old_system
-      Kernel.puts "[pry-remote-em] remote session terminated (#{peer_ip}:#{peer_port})"
+      send_data({:a => false}) if @auth_required
     end
 
     def peer_ip
@@ -101,7 +98,9 @@ module PryRemoteEm
       elsif j['a'] # authentication response
         return send_data({:a => true}) if !@auth || !@auth_required
         return send_data({:a => 'auth data must be a two element array'}) unless j['a'].is_a?(Array) && j['a'].length == 2
-        if (@auth_required = !@auth.call(*j['a']))
+        unless (@auth_required = !@auth.call(*j['a']))
+          authenticated!
+        else
           if @auth_tries <= 0
             msg = "max authentication attempts reached"
             send_data({:a => msg})
@@ -117,15 +116,27 @@ module PryRemoteEm
       end # j['d']
     end # receive_json(j)
 
+
+    def authenticated!
+      while (aa = @after_auth.shift)
+        send_data(aa)
+      end
+    end
+
+    def unbind
+      Pry.config.pager  = @old_pager
+      Pry.config.system = @old_system
+      Kernel.puts "[pry-remote-em] remote session terminated (#{peer_ip}:#{peer_port})"
+    end
+
+    # Methods that make Server compatible with Pry
+
     def readline(prompt)
-      # @todo don't send the prompt until authed if auth required
-      send_data({:p => prompt})
+      @auth_required ? @after_auth.push({:p => prompt}) : send_data({:p => prompt})
       return @lines.shift unless @lines.empty?
       @waiting = Fiber.current
       return Fiber.yield
     end
-
-    # Methods that make Server compatible with Pry
 
     def print(val)
       send_data({:d => val})
