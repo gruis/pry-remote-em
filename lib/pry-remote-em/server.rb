@@ -1,5 +1,6 @@
 require 'pry'
 require 'pry-remote-em'
+require 'pry-remote-em/pk-auth/chain'
 
 module PryRemoteEm
   module Server
@@ -84,36 +85,18 @@ module PryRemoteEm
     end
 
     def receive_json(j)
-      return send_data({:a => false}) if @auth_required && !j['a']
-
-      if j['d'] # just normal data
-        @lines.push(*j['d'].split("\n"))
-        if @waiting
-          f, @waiting = @waiting, nil
-          f.resume(@lines.shift)
-        end
-      elsif j['c'] # tab completion request
-        send_data({:c => @compl_proc.call(j['c'])})
-
-      elsif j['a'] # authentication response
-        return send_data({:a => true}) if !@auth || !@auth_required
-        return send_data({:a => 'auth data must be a two element array'}) unless j['a'].is_a?(Array) && j['a'].length == 2
-        unless (@auth_required = !@auth.call(*j['a']))
-          authenticated!
-        else
-          if @auth_tries <= 0
-            msg = "max authentication attempts reached"
-            send_data({:a => msg})
-            Kernel.puts "[pry-remote-em] #{msg} (#{peer_ip}:#{peer_port})"
-            return close_connection_after_writing
-          end
-          @auth_tries -= 1
-        end
-        return send_data({:a => !@auth_required})
-
+      return send_data({:a => false}) if @auth_required && (!j['a'] || j['apk'])
+      if j['d']
+        proc_data(j)
+      elsif j['c']
+        proc_tabcompl(j)
+      elsif j['a']
+        proc_auth(j)
+      elsif j['apk']
+        proc_pkauth(j)
       else
         warn "received unexpected data: #{j.inspect}"
-      end # j['d']
+      end
     end # receive_json(j)
 
 
@@ -163,5 +146,57 @@ module PryRemoteEm
     System = proc do |output, cmd, _|
       output.puts("shell commands are not yet supported")
     end
+
+  private
+
+    # Process data typed in by the user on the client
+    def proc_data(j)
+      @lines.push(*j['d'].split("\n"))
+      if @waiting
+        f, @waiting = @waiting, nil
+        f.resume(@lines.shift)
+      end
+    end # proc_data(j)
+
+    # Process a tab completiong request from the client.
+    def proc_tabcompl(j)
+      send_data({:c => @compl_proc.call(j['c'])})
+    end # proc_tabcompl(j)
+
+    # Process an auth message from the client
+    def proc_auth(j)
+      return send_data({:a => true}) if !@auth || !@auth_required
+      return send_data({:a => 'auth data must be a two element array'}) unless j['a'].is_a?(Array) && j['a'].length == 2
+      unless (@auth_required = !@auth.call(*j['a']))
+        authenticated!
+      else
+        if @auth_tries <= 0
+          msg = "max authentication attempts reached"
+          send_data({:a => msg})
+          Kernel.puts "[pry-remote-em] #{msg} (#{peer_ip}:#{peer_port})"
+          return close_connection_after_writing
+        end
+        @auth_tries -= 1
+      end
+      return send_data({:a => !@auth_required})
+    end # proc_auth(j)
+
+    # Process a public key authentication request from the client
+    def proc_pkauth(j)
+      @pk_auth ||= PkAuth::Chain.new
+      @auth_required = @pk_auth.ok?(*j['apk']) rescue $!
+
+      unless (@auth_required = !(@pk_auth.ok?(*j['apk']) rescue $!))
+        authenticated!
+      else
+        if @auth_required.is_a?(String) || @auth_required.is_a?(Exception)
+          send_data({:apk => @auth_required.to_s})
+          Kernel.puts "[pry-remote-em] #{@auth_required} (#{peer_ip}:#{peer_port})"
+          return close_connection_after_writing
+        end
+      end
+      return send_data({:apk => !@auth_required})
+    end # proc_pkauth(j)
+
   end # module::Server
 end # module::PryRemoteEm
