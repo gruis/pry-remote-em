@@ -21,7 +21,8 @@ module PryRemoteEm
             }.resume
           end
         rescue => e
-          if e.message.include?('port is in use') && tries >= 1
+          # EM 1.0.0.beta4's message tells us the port is in use; 0.12.10 just says, 'no acceptor'
+          if (e.message.include?('port is in use') || e.message.include?('no acceptor')) && tries >= 1
             tries -= 1
             port += 1
             retry
@@ -156,8 +157,8 @@ module PryRemoteEm
       true # might be a very bad idea ....
     end
 
-    def tty?
-      true # might be a very bad idea ....
+    def flush
+      true
     end
 
     System = proc do |output, cmd, _|

@@ -1,6 +1,7 @@
 require 'pry-remote-em/version'
 require 'pry-remote-em/json-proto'
 require 'eventmachine'
+require 'socket'
 require 'json'
 require "fiber"
 
