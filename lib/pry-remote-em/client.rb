@@ -1,14 +1,17 @@
 require 'uri'
 require 'pry-remote-em'
+require 'pry/helpers/base_helpers'
 #require "readline"   # doesn't work with Fiber.yield
-#  - /Users/caleb/src/pry-remote-em/lib/pry-remote-em/client.rb:45:in `yield': fiber called across stack rewinding barrier (FiberError)
+        #  - /Users/caleb/src/pry-remote-em/lib/pry-remote-em/client.rb:45:in `yield': fiber called across stack rewinding barrier (FiberError)
 require "rb-readline" # doesn't provide vi-mode support :(
-                      # https://github.com/luislavena/rb-readline/issues/21
+        # https://github.com/luislavena/rb-readline/issues/21
+        # https://github.com/simulacre/rb-readline/commit/0376eb4e9526b3dc1a6512716322efcef409628d
 
 module PryRemoteEm
   module Client
     include EM::Deferrable
     include JsonProto
+    include Pry::Helpers::BaseHelpers
 
     class << self
       def start(host = PryRemoteEm::DEFHOST, port = PryRemoteEM::DEFPORT, opts = {:tls => false})
@@ -56,7 +59,7 @@ module PryRemoteEm
         end
 
       elsif j['d'] # printable data
-        print j['d']
+        stagger_output j['d'], $stdout # Pry::Helpers::BaseHelpers
 
       elsif j['g'] # server banner
         Kernel.puts "[pry-remote-em] remote is #{j['g']}"
@@ -111,3 +114,11 @@ module PryRemoteEm
     end
   end # module::Client
 end # module::PryRemoteEm
+
+# Pry::Helpers::BaseHelpers#stagger_output expects Pry.pager to be defined
+class Pry
+  class << self
+    attr_accessor :pager unless respond_to?(:pager)
+  end
+end
+Pry.pager = true

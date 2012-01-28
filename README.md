@@ -197,10 +197,30 @@ key   key?  keys
 => [:encoding]
 ```
 
+## Paging
+
+The standard Pry pager is supported through the included client.
+
+```ruby
+[1] pry(#<Hash>)> ENV
+=> {"COMMAND_MODE"=>"unix2003",
+ "DISPLAY"=>"/tmp/launch-0EGhJW/org.x:0",
+ "EDITOR"=>"mvim -f --nomru -c \"au VimLeave * !open -a Terminal\"",
+ "GEM_HOME"=>"/Users/caleb/.rvm/gems/ruby-1.9.2-p290",
+ "GEM_PATH"=>
+  "/Users/caleb/.rvm/gems/ruby-1.9.2-p290:/Users/caleb/.rvm/gems/ruby-1.9.2-p290@global",
+ "GREP_COLOR"=>"1;32",
+ "GREP_OPTIONS"=>"--color=auto",
+ "HOME"=>"/Users/caleb",
+ "IRBRC"=>"/Users/caleb/.rvm/rubies/ruby-1.9.2-p290/.irbrc",
+ "LC_CTYPE"=>"",
+ "LOGNAME"=>"caleb",
+ "LSCOLORS"=>"Gxfxcxdxbxegedabagacad",
+:
+```
 
 # Missing Features
 
-  - Paging [ticket](https://github.com/simulacre/pry-remote-em/issues/10)
   - AutoDiscovery/Broker [ticket](https://github.com/simulacre/pry-remote-em/issues/11)
   - HTTP Transport [ticket](https://github.com/simulacre/pry-remote-em/issues/12)
   - Shell Commands [ticket](https://github.com/simulacre/pry-remote-em/issues/15)
