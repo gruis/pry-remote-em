@@ -95,6 +95,93 @@ you pass a Hash, e.g. ``:tls => {:private_key_file => '/tmp/server.key'}`` it wi
   [1] pry(#<Hash>)> 
 ```
 
+## User Authentication
+
+### Server
+
+ If the service is started with the :auth option it will require all
+clients to authenticate on connect. The :auth option can be a Hash, proc
+or any object that responds to #call.
+
+#### Auth with a Hash
+```ruby
+auth_hash = {'caleb' => 'crane', 'john' => 'lowski'}
+obj       = {:encoding => __ENCODING__, :weather => :cloudy}
+EM.run{
+  obj.remote_pry_em('localhost', :auto, :tls => true, :auth => auth_hash)
+}
+```
+
+#### Auth with a lambda
+```ruby
+require ‘net/ldap’
+ldap_anon = lambda do |user, pass|
+  ldap = Net::LDAP.new :host => “10.0.0.1”, :port => 389, :auth => {:method => :simple, :username => user, :password => pass}
+  ldap.bind
+end
+obj       = {:encoding => __ENCODING__, :weather => :cloudy}
+EM.run{
+  obj.remote_pry_em('localhost', :auto, :tls => true, :auth => ldap_anon)
+}
+```
+
+#### Auth with an object
+```ruby
+class Authenticator
+  def initialize(db)
+    @db = db
+  end
+  def call(user, pass)
+    @db[user] && @db[user] == pass
+  end
+end
+
+obj       = {:encoding => __ENCODING__, :weather => :cloudy}
+EM.run{
+  obj.remote_pry_em('localhost', :auto, :tls => true, :auth => Authenticator.new(auth_hash))
+}
+```
+
+
+### Client
+
+The included command line client ``pry-remote-em`` can take a username
+and/or password as part of the url argument. If either a username or
+password is not supplied, but required by the server it will prompt for
+them.
+
+```shell
+$ pry-remote-em pryems://localhost:6464/
+[pry-remote-em] client connected to pryem://127.0.0.1:6464/
+[pry-remote-em] remote is PryRemoteEm 0.4.0 pryems
+[pry-remote-em] negotiating TLS
+[pry-remote-em] TLS connection established
+user: caleb
+caleb's password: *****
+[1] pry(#<Hash>)> 
+```
+
+
+```shell
+$ pry-remote-em pryems://caleb@localhost:6464
+[pry-remote-em] client connected to pryem://127.0.0.1:6464/
+[pry-remote-em] remote is PryRemoteEm 0.4.0 pryems
+[pry-remote-em] negotiating TLS
+[pry-remote-em] TLS connection established
+caleb's password: *****
+[1] pry(#<Hash>)> exit
+```
+
+```shell
+$ pry-remote-em pryems://caleb:crane@localhost:6464
+[pry-remote-em] client connected to pryem://127.0.0.1:6464/
+[pry-remote-em] remote is PryRemoteEm 0.4.0 pryems
+[pry-remote-em] negotiating TLS
+[pry-remote-em] TLS connection established
+[1] pry(#<Hash>)> exit
+```
+
+
 ## Tab Completion
 
   Tab completion candidates will be retrieved from the server and
@@ -110,14 +197,15 @@ key   key?  keys
 => [:encoding]
 ```
 
+
 # Missing Features
 
-  - User authentication [ticket](https://github.com/simulacre/pry-remote-em/issues/5)
   - Paging [ticket](https://github.com/simulacre/pry-remote-em/issues/10)
   - AutoDiscovery/Broker [ticket](https://github.com/simulacre/pry-remote-em/issues/11)
   - HTTP Transport [ticket](https://github.com/simulacre/pry-remote-em/issues/12)
   - Shell Commands [ticket](https://github.com/simulacre/pry-remote-em/issues/15)
-  - Vi Mode editing - RbReadline doesn't support vi edit mode. I'm looking into contributing it. PryRemoteEm uses rb-readline because the STLIB version doesn't play nice with Fibers.
+  - Vi mode editing - RbReadline doesn't support vi edit mode. I'm looking into contributing it. PryRemoteEm uses rb-readline because the STLIB version doesn't play nice with Fibers.
+  - Ssh key based authentication
 
 
 # Issues

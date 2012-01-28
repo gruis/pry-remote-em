@@ -15,8 +15,14 @@ end
 tried = 0
 auth_proc = proc do
   tried += 1
-  user   = uri.user || Readline.readline("user: ")
-  pass   = (!uri.password.nil? && tried <= 1) ? uri.password : HighLine.new.ask("#{user}'s password: ") { |q| q.echo = '*'}  
+  user   = uri.user || ($stdin.tty? ? Readline.readline("user: ") : raise("username is require for authentication"))
+  pass   = if !uri.password.nil? && tried <= 1
+             uri.password
+           elsif $stdin.tty?
+             HighLine.new.ask("#{user}'s password: ") { |q| q.echo = '*'}
+           else
+             raise "password is required to authenticate"
+           end 
   [user, pass]
 end
 
