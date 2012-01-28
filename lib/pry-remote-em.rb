@@ -1,3 +1,8 @@
+begin
+  require 'openssl'
+rescue LoadError
+  warn "OpenSSL support is not available"
+end
 require 'pry-remote-em/version'
 require 'pry-remote-em/json-proto'
 require 'eventmachine'

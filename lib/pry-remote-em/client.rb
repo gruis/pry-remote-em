@@ -65,16 +65,17 @@ module PryRemoteEm
         Kernel.puts "[pry-remote-em] remote is #{j['g']}"
         name, version, scheme = j['g'].split(" ", 3)
         # TODO parse version and compare against a Gem style matcher
-        if version == PryRemoteEm::VERSION
-          if scheme.nil? || scheme != (reqscheme = @opts[:tls] ? 'pryems' : 'pryem')
+        return fail("[pry-remote-em] incompatible version #{version}") if version != PryRemoteEm::VERSION
+        if scheme.nil? || scheme != (reqscheme = @opts[:tls] ? 'pryems' : 'pryem')
+          if scheme == 'pryems' && defined?(::OpenSSL)
+            @opts[:tls] = true
+          else
             return fail("[pry-remote-em] server doesn't support requried scheme #{reqscheme.dump}")
-          end
-          @nego_timer.cancel
-          @negotiated = true
-          start_tls if @opts[:tls]
-        else
-          fail("[pry-remote-em] incompatible version #{version}")
+          end # scheme == 'pryems' && defined?(::OpenSSL)
         end
+        @nego_timer.cancel
+        @negotiated = true
+        start_tls if @opts[:tls]
 
       elsif j['c'] # tab completion response
         @waiting, f = nil, @waiting
