@@ -1,6 +1,4 @@
 #!/usr/bin/env ruby
-# encoding: UTF-8
-$: << File.realpath(File.expand_path("../../lib/", __FILE__))
 require 'pry-remote-em/server'
 
 

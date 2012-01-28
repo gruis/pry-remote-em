@@ -1,0 +1,5 @@
+0.4.0
+  - User/Pass authentication
+  - TLS support
+  - Paging support
+  - Tab completion
