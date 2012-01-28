@@ -65,12 +65,13 @@ module PryRemoteEm
         Kernel.puts "[pry-remote-em] remote is #{j['g']}"
         name, version, scheme = j['g'].split(" ", 3)
         # TODO parse version and compare against a Gem style matcher
+        # https://github.com/simulacre/pry-remote-em/issues/21
         return fail("[pry-remote-em] incompatible version #{version}") if version != PryRemoteEm::VERSION
         if scheme.nil? || scheme != (reqscheme = @opts[:tls] ? 'pryems' : 'pryem')
           if scheme == 'pryems' && defined?(::OpenSSL)
             @opts[:tls] = true
           else
-            return fail("[pry-remote-em] server doesn't support requried scheme #{reqscheme.dump}")
+            return fail("[pry-remote-em] server doesn't support required scheme #{reqscheme.dump}")
           end # scheme == 'pryems' && defined?(::OpenSSL)
         end
         @nego_timer.cancel
@@ -111,6 +112,8 @@ module PryRemoteEm
     def unbind
       @unbound = true
       Kernel.puts "[pry-remote-em] session terminated"
+      # prior to 1.0.0.b4 error? returns true here even when it's not
+      return succeed if Gem.loaded_specs["eventmachine"].version < Gem::Version.new("1.0.0.beta4")
       error? ? fail : succeed
     end
   end # module::Client
