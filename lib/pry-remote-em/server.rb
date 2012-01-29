@@ -1,5 +1,33 @@
 require 'pry'
 require 'pry-remote-em'
+# How it works with Pry
+#
+# When PryRemoteEm.run is called it registers with EventMachine for a given ip
+# and port. When a connection is received EM yields an instance of PryRemoteEm,
+# we start a Fiber (f1) then call Pry.start specifying the Server instance as the
+# input and output object for Pry. The Pry instance that is created goes into
+# its REPL.  When it gets to the read part it calls @input.readline
+# (PryRemoteEm#readline) and passes a prompt, e.g., [1] pry(#<Foo>)>.
+#
+# PryRemoteEm#readline calls #send_data with the prompt then yields from the
+# current Fiber (f1); the one we started when EventMachine yielded to us. The root
+# Fiber is now active again. At some point, the root Fiber receives data from
+# the client. It calls #receive_data in our Server instance. That instance then
+# resumes the Fiber (f1) that was waiting for #readline to finish.
+#
+# Inside the resumed Fiber (f1) PryRemoteEm#readline returns the recieved data
+# to the instance of Pry, which continues its REPL. Pry calls #puts, or #print
+# or #write on its output object (PryRemoteEm). We send that data out to the client
+# and immediately return. Pry then calls PryRemoteEm#readline again and again
+# we send the prompt then immediately yield back to the root Fiber.
+#
+# Pry just interacts with PryRemoteEm as if it were any other blocking Readline
+# object. The important bit is making sure that it is started in a new Fiber that
+# can be paused and resumed as needed. PryRemoteEm#readline pauses it and
+# PryRemoteEm#receive_json resumes it.
+#
+# Reference:
+# http://www.igvita.com/2010/03/22/untangling-evented-code-with-ruby-fibers/
 
 module PryRemoteEm
   module Server
