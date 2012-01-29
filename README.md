@@ -196,9 +196,9 @@ EM.run{
 
 #### Auth with a lambda
 ```ruby
-require ‘net/ldap’
+require 'net/ldap'
 ldap_anon = lambda do |user, pass|
-  ldap = Net::LDAP.new :host => “10.0.0.1”, :port => 389, :auth => {:method => :simple, :username => user, :password => pass}
+  ldap = Net::LDAP.new :host => '10.0.0.1', :port => 389, :auth => {:method => :simple, :username => user, :password => pass}
   ldap.bind
 end
 obj       = {:encoding => __ENCODING__, :weather => :cloudy}
