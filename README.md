@@ -1,12 +1,14 @@
-# What is it?
-
-A way to start Pry remotely in EventMachine and to connect to it. This provides access to the state of the running program from anywhere.
+[PryRemoteEm](https://rubygems.org/gems/pry-remote-em) enables you to
+start instances of Pry in a running
+[EventMachine](http://rubyeventmachine.com/) program and connect to
+those Pry instances over a network or the Internet. Once connected you
+can interact with the internal state of the program.
 
 It's based off of [Mon-Ouie's](https://github.com/Mon-Ouie) [pry-remote](https://github.com/Mon-Ouie/pry-remote) for DRb.
 
-# Compatibility
-
-  MRI 1.9 or any other VM with support for Fibers is required.
+It adds user authentication and SSL support along with tab-completion
+and paging. It's compatble with MRI 1.9, or any other VM with support
+for Fibers and EventMachine.
 
 
 # Installation
@@ -78,22 +80,102 @@ You can then connect to the pry session using ``pry-remote-em``:
 
 # Features
 
+## Multiple Servers
+
+It's easy to run more than one PryRemoteEm service on a single machine,
+or even in the same process. When you start the service via
+*#remote_pry_em*, just specify *:auto* as the port to use. The service
+will automatically take the next free port from 6462.
+
+```ruby
+require "pry-remote-em/server"
+
+os     = ObjectSpace.each_object
+expose = []
+while expose.length < 5
+  o = os.next
+  expose.push(o) unless o.frozen?
+end
+
+EM.run {
+  expose.each {|o| o.remote_pry_em('localhost', :auto) }
+}
+```
+
+    $ ruby test/auto-demo.rb
+    [pry-remote-em] listening for connections on pryem://localhost:6462/
+    [pry-remote-em] listening for connections on pryem://localhost:6463/
+    [pry-remote-em] listening for connections on pryem://localhost:6464/
+    [pry-remote-em] listening for connections on pryem://localhost:6465/
+    [pry-remote-em] listening for connections on pryem://localhost:6466/
+
+```shell
+$ pry-remote-em
+[pry-remote-em] client connected to pryem://127.0.0.1:6462/
+[pry-remote-em] remote is PryRemoteEm 0.4.0 pryem
+[1] pry("pretty_print")> 
+
+$ pry-remote-em  pryem://127.0.0.1:6463/
+[pry-remote-em] client connected to pryem://127.0.0.1:6463/
+[pry-remote-em] remote is PryRemoteEm 0.4.0 pryem
+[1] pry("pack")> 
+
+$ pry-remote-em  pryem://127.0.0.1:6464/
+[pry-remote-em] client connected to pryem://127.0.0.1:6464/
+[pry-remote-em] remote is PryRemoteEm 0.4.0 pryem
+[1] pry("to_json")>
+
+$ pry-remote-em  pryem://127.0.0.1:6465/
+[pry-remote-em] client connected to pryem://127.0.0.1:6465/
+[pry-remote-em] remote is PryRemoteEm 0.4.0 pryem
+[1] pry("to_json")> 
+
+$ pry-remote-em  pryem://127.0.0.1:6466/
+[pry-remote-em] client connected to pryem://127.0.0.1:6466/
+[pry-remote-em] remote is PryRemoteEm 0.4.0 pryem
+[1] pry(#<RubyVM::InstructionSequence>)> 
+```
+
 ## TLS Encryption
   
-  When creating a server pass the :tls => true option to enable TLS. If
-you pass a Hash, e.g. ``:tls => {:private_key_file => '/tmp/server.key'}`` it will be used to configure the internal TLS handler. 
-  See [EventMachine::Connection#start_tls](http://eventmachine.rubyforge.org/EventMachine/Connection.html#M000296) for the available options.
+When creating a server pass the :tls => true option to enable TLS. 
 
- To start the command line client in TLS mode pass it a pryems URL instead of a pryem URL.
+```ruby
+obj.remote_pry_em('localhost', :auto, :tls => true)
+```
+
+If you pass a Hash it will be used to configure the internal TLS handler. 
+
+```ruby
+obj.remote_pry_em('localhost', :auto, :tls => {:private_key_file => '/tmp/server.key'})
+``` 
+See [EventMachine::Connection#start_tls](http://eventmachine.rubyforge.org/EventMachine/Connection.html#M000296) for the available options.
+
+
+When the command line client connects to a TLS enabled server it will
+automatically use TLS mode even if the user didn't request it.
 
 ```bash
-  $ bin/pry-remote-em pryems:///
-  [pry-remote-em] client connected to pryem://127.0.0.1:6462/
-  [pry-remote-em] remote is PryRemoteEm 0.2.0 pryems
-  [pry-remote-em] negotiating TLS
-  [pry-remote-em] TLS connection established
-  [1] pry(#<Hash>)> 
+$ pry-remote-em pryem://localhost:6462/
+[pry-remote-em] client connected to pryem://127.0.0.1:6462/
+[pry-remote-em] remote is PryRemoteEm 0.4.0 pryems
+[pry-remote-em] negotiating TLS
+[pry-remote-em] TLS connection established
+[1] pry(#<Hash>)> 
 ```
+
+To always require a TLS connection give pry-remote-em a pryem*s* URL. If
+the server doesn't support TLS the connection will be terminated.
+
+```bash
+$ pry-remote-em pryems://localhost:6468/
+[pry-remote-em] client connected to pryem://127.0.0.1:6468/
+[pry-remote-em] remote is PryRemoteEm 0.4.0 pryem
+[pry-remote-em] connection failed
+[pry-remote-em] server doesn't support required scheme "pryems"
+[pry-remote-em] session terminated
+```
+
 
 ## User Authentication
 
