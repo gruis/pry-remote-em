@@ -55,7 +55,10 @@ module PryRemoteEm
     def receive_json(j)
       if j['p'] # prompt
         if @negotiated && !@unbound
-          Fiber.new { send_data(Readline.readline(j['p'], true)) }.resume
+          Fiber.new {
+            true while (l = Readline.readline(j['p'], true)).empty?
+            send_data(l)
+          }.resume
         end
 
       elsif j['d'] # printable data
