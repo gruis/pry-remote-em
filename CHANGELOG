@@ -1,3 +1,6 @@
+0.4.1
+  - empty lines don't cause termination
+
 0.4.0
   - User/Pass authentication
   - TLS support
