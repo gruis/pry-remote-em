@@ -16,8 +16,17 @@ class Authenticator
   end
 end
 
+
+class Foo
+  def initialize(auth)
+    binding.remote_pry_em('127.0.0.1', 1337, auth: auth)
+  end
+end
+
+
 obj = {:encoding => __ENCODING__, :weather => :cloudy}
 EM.run{
+  Foo.new(auth_hash)
   obj.remote_pry_em('localhost', :auto, :tls => true, :target => binding)
   obj.remote_pry_em('localhost', :auto, :tls => true)
   obj.remote_pry_em('0.0.0.0', :auto, :tls => true)

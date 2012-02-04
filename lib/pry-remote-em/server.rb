@@ -168,7 +168,7 @@ module PryRemoteEm
     end
 
     def print(val)
-      send_data({:d => val})
+      @auth_required ? @after_auth.push({:d => val}) : send_data({:d => val})
     end
     alias :write :print
 
