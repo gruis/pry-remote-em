@@ -37,9 +37,13 @@ module PryRemoteEm
     end
 
     def post_init
-      return fail("connection was not established") unless get_peername
-      port, ip = Socket.unpack_sockaddr_in(get_peername)
-      Kernel.puts "[pry-remote-em] client connected to pryem://#{ip}:#{port}/"
+      if get_peername
+        port, ip = Socket.unpack_sockaddr_in(get_peername)
+        Kernel.puts "[pry-remote-em] client connected to pryem://#{ip}:#{port}/"
+      else
+        # TODO use the args used to create this connection
+        Kernel.puts "[pry-remote-em] client connected"
+      end
       @nego_timer = EM::Timer.new(PryRemoteEm::NEGOTIMER) do
         fail("[pry-remote-em] server didn't finish negotiation within #{PryRemoteEm::NEGOTIMER} seconds; terminating")
       end

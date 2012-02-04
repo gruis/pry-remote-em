@@ -67,7 +67,7 @@ module PryRemoteEm
       @opts       = opts
       if (a = opts[:auth])
         if a.respond_to?(:call)
-          return error("auth handler procs must take two arguments") unless a.method(:call).arity == 2
+          return fail("auth handler procs must take two arguments not (#{a.method(:call).arity})") unless a.method(:call).arity == 2
           @auth = a
         else
           return error("auth handler objects must respond to :call, or :[]") unless a.respond_to?(:[])
