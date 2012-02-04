@@ -65,16 +65,18 @@ module PryRemoteEm
     def initialize(opts = {:tls => false})
       @after_auth = []
       @opts       = opts
-      if (a = opts[:auth])
-        if a.respond_to?(:call)
-          return fail("auth handler procs must take two arguments not (#{a.method(:call).arity})") unless a.method(:call).arity == 2
-          @auth = a
-        else
-          return error("auth handler objects must respond to :call, or :[]") unless a.respond_to?(:[])
-          @auth = lambda {|u,p| a[u] && a[u] == p }
-        end
-        @auth_tries = 5
+      return unless (a = opts[:auth])
+      if a.is_a?(Proc)
+        return fail("auth handler Procs must take two arguments not (#{a.arity})") unless a.arity == 2
+        @auth = a
+      elsif a.respond_to?(:call)
+        return fail("auth handler must take two arguments not (#{a.method(:call).arity})") unless a.method(:call).arity == 2
+        @auth = a
+      else
+        return error("auth handler objects must respond to :call, or :[]") unless a.respond_to?(:[])
+        @auth = lambda {|u,p| a[u] && a[u] == p }
       end
+      @auth_tries = 5
     end
 
     def post_init
