@@ -1,3 +1,6 @@
+0.4.2
+  - fixes https://github.com/simulacre/pry-remote-em/issues/23
+
 0.4.1
   - empty lines don't cause termination
 
