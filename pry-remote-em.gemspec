@@ -4,7 +4,7 @@ Gem::Specification.new do |s|
   s.name          = 'pry-remote-em'
   s.version       = PryRemoteEm::VERSION
   s.summary       = 'Connect to Pry remotely using EventMachine'
-  s.description   = 'Connect to Pry remotely using EventMachine with tab-completion, paging, user authentication and SSL support.'
+  s.description   = 'Connect to Pry remotely using EventMachine with tab-completion, paging, user auth and SSL'
   s.homepage      = 'http://github.com/simulacre/pry-remote-em'
   s.email         = 'pry-remote-em@simulacre.org'
   s.authors       = ['Caleb Crane']
