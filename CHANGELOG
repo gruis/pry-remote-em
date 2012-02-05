@@ -1,11 +1,15 @@
+0.4.3
+- fixes https://github.com/simulacre/pry-remote-em/issues/26
+- fixes https://github.com/simulacre/pry-remote-em/issues/24
+
 0.4.2
-  - fixes https://github.com/simulacre/pry-remote-em/issues/23
+- fixes https://github.com/simulacre/pry-remote-em/issues/23
 
 0.4.1
-  - empty lines don't cause termination
+- empty lines don't cause termination
 
 0.4.0
-  - User/Pass authentication
-  - TLS support
-  - Paging support
-  - Tab completion
+- User/Pass authentication
+- TLS support
+- Paging support
+- Tab completion
