@@ -42,6 +42,7 @@ module PryRemoteEm
           EM.start_server(host, port, PryRemoteEm::Server, opts) do |pre|
             Fiber.new {
               begin
+                $stdout = pre
                 Pry.start(obj, :input => pre, :output => pre)
               ensure
                 pre.close_connection
