@@ -58,15 +58,16 @@ module PryRemoteEm
 
     def receive_json(j)
       if j['p'] # prompt
-        if @negotiated && !@unbound
-          Fiber.new {
-            true while (l = Readline.readline(j['p'], true)).empty?
-            send_data(l)
-          }.resume
-        end
+        readline(j['p'])
 
       elsif j['d'] # printable data
         stagger_output j['d'], $stdout # Pry::Helpers::BaseHelpers
+
+      elsif j['m']
+        Kernel.puts "\033[1m! msg: " + j['m'] + "\033[0m"
+
+      elsif j['mb']
+        Kernel.puts "\033[1m!! msg: " + j['mb'] + "\033[0m"
 
       elsif j['g'] # server banner
         Kernel.puts "[pry-remote-em] remote is #{j['g']}"
@@ -123,6 +124,22 @@ module PryRemoteEm
       return succeed if Gem.loaded_specs["eventmachine"].version < Gem::Version.new("1.0.0.beta4")
       error? ? fail : succeed
     end
+
+    def readline(prompt)
+      if @negotiated && !@unbound
+        Fiber.new {
+          l = Readline.readline(prompt, !prompt.nil?)
+          if '!!' == l[0..1]
+            send_data({:b => l[2..-1]})
+          elsif '!' == l[0]
+            send_data({:m => l[1..-1]})
+          else
+            send_data(l)
+          end # "!!" == l[0..1]
+        }.resume
+      end
+    end # readline(prompt = @last_prompt)
+
   end # module::Client
 end # module::PryRemoteEm
 

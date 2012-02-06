@@ -1,3 +1,6 @@
+0.5.0
+- adds simple messaging with '!' and '!!'
+
 0.4.3
 - fixes https://github.com/simulacre/pry-remote-em/issues/26
 - fixes https://github.com/simulacre/pry-remote-em/issues/24

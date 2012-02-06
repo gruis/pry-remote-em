@@ -13,7 +13,8 @@ module PryRemoteEm
         j = JSON.load(@buffer)
         @buffer.clear
         receive_json(j)
-        receive_data(d[(six + DELIM.length)..-1])
+        (rem = d[(six + DELIM.length)..-1]).empty? ||
+          receive_data(rem)
       else
         @buffer << d
       end

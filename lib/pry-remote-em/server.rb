@@ -39,7 +39,7 @@ module PryRemoteEm
         # TODO raise a useful exception not RuntimeError
         raise "root permission required for port below 1024 (#{port})" if port < 1024 && Process.euid != 0
         begin
-          EM.start_server(host, port, PryRemoteEm::Server, opts) do |pre|
+          EM.start_server(host, port, PryRemoteEm::Server, obj, opts) do |pre|
             Fiber.new {
               begin
                 Pry.start(obj, :input => pre, :output => pre)
@@ -60,9 +60,28 @@ module PryRemoteEm
         scheme = opts[:tls] ? 'pryems' : 'pryem'
         Kernel.puts "[pry-remote-em] listening for connections on #{scheme}://#{host}:#{port}/"
       end # run(obj, host = DEFHOST, port = DEFPORT)
+
+      # The list of pry-remote-em connections for a given object, or the list of all pry-remote-em
+      # connections for this process.
+      # The peer list is used when broadcasting messages between connections.
+      def peers(obj = nil)
+        @peers ||= {}
+        obj.nil? ? @peers.values.flatten : (@peers[obj] ||= [])
+      end
+
+      # Record the association between a given object and a given pry-remote-em connection.
+      def register(obj, peer)
+        peers(obj).tap { |plist| plist.include?(peer) || plist.push(peer) }
+      end
+
+      # Remove the association between a given object and a given pry-remote-em connection.
+      def unregister(obj, peer)
+        peers(obj).tap {|plist| true while plist.delete(peer) }
+      end
     end # class << self
 
-    def initialize(opts = {:tls => false})
+    def initialize(obj, opts = {:tls => false})
+      @obj        = obj
       @after_auth = []
       @opts       = opts
       return unless (a = opts[:auth])
@@ -88,6 +107,7 @@ module PryRemoteEm
       Kernel.puts "[pry-remote-em] received client connection from #{ip}:#{port}"
       send_data({:g => "PryRemoteEm #{VERSION} #{@opts[:tls] ? 'pryems' : 'pryem'}"})
       @opts[:tls] ? start_tls : (@auth_required && send_data({:a => false}))
+      PryRemoteEm::Server.register(@obj, self)
     end
 
     def start_tls
@@ -118,6 +138,7 @@ module PryRemoteEm
       return send_data({:a => false}) if @auth_required && !j['a']
 
       if j['d'] # just normal data
+        return send_last_prompt if j['d'].empty?
         @lines.push(*j['d'].split("\n"))
         if @waiting
           f, @waiting = @waiting, nil
@@ -142,6 +163,14 @@ module PryRemoteEm
         end
         return send_data({:a => !@auth_required})
 
+      elsif j['m'] # message all peer connections
+        peers.each { |peer| peer.send_message(j['m']) }
+        send_last_prompt
+
+      elsif j['b'] # broadcast message
+        peers(:all).each { |peer| peer.send_bmessage(j['b']) }
+        send_last_prompt
+
       else
         warn "received unexpected data: #{j.inspect}"
       end # j['d']
@@ -157,12 +186,34 @@ module PryRemoteEm
     def unbind
       Pry.config.pager  = @old_pager
       Pry.config.system = @old_system
+      PryRemoteEm::Server.unregister(@obj, self)
       Kernel.puts "[pry-remote-em] remote session terminated (#{peer_ip}:#{peer_port})"
+    end
+
+    def peers(all = false)
+      plist = (all ? PryRemoteEm::Server.peers : PryRemoteEm::Server.peers(@obj)).clone
+      plist.delete(self)
+      plist
+    end
+
+    def send_last_prompt
+      @auth_required ? @after_auth.push({:p => @last_prompt}) :  send_data({:p => @last_prompt})
+    end
+
+    # Sends a chat message to the client.
+    def send_message(msg)
+      @auth_required ?  @after_auth.push({:m => msg}) : send_data({:m => msg})
+    end
+    #
+    # Sends a chat message to the client.
+    def send_bmessage(msg)
+      @auth_required ?  @after_auth.push({:mb => msg}) : send_data({:mb => msg})
     end
 
     # Methods that make Server compatible with Pry
 
     def readline(prompt)
+      @last_prompt = prompt
       @auth_required ? @after_auth.push({:p => prompt}) : send_data({:p => prompt})
       return @lines.shift unless @lines.empty?
       @waiting = Fiber.current

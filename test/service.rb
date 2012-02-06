@@ -24,18 +24,28 @@ class Foo
 end
 
 
-obj = {:encoding => __ENCODING__, :weather => :cloudy}
+anon_obj = Class.new do
+  def keys
+    [:encoding, :weather]
+  end
+  def encoding
+    __ENCODING__
+  end
+  def weather
+    :cloudy
+  end
+end
 EM.run{
   Foo.new(auth_hash)
-  obj.remote_pry_em('localhost', :auto, :tls => true, :target => binding)
-  obj.remote_pry_em('localhost', :auto, :tls => true)
-  obj.remote_pry_em('0.0.0.0', :auto, :tls => true)
-  obj.remote_pry_em('localhost', :auto, :tls => true, :auth => auth_hash)
-  obj.remote_pry_em('localhost', :auto, :tls => true, :auth => auth_anon)
-  obj.remote_pry_em('localhost', :auto, :tls => true, :auth => Authenticator.new(auth_hash))
+  anon_obj.new.remote_pry_em('localhost', :auto, :tls => true, :target => binding)
+  anon_obj.new.remote_pry_em('localhost', :auto, :tls => true)
+  anon_obj.new.remote_pry_em('0.0.0.0', :auto, :tls => true)
+  anon_obj.new.remote_pry_em('localhost', :auto, :tls => true, :auth => auth_hash)
+  anon_obj.new.remote_pry_em('localhost', :auto, :tls => true, :auth => auth_anon)
+  anon_obj.new.remote_pry_em('localhost', :auto, :tls => true, :auth => Authenticator.new(auth_hash))
 
-  obj.remote_pry_em('localhost', :auto, :auth => auth_hash)
-  obj.remote_pry_em('localhost', :auto)
+  anon_obj.new.remote_pry_em('localhost', :auto, :auth => auth_hash)
+  anon_obj.new.remote_pry_em('localhost', :auto)
 }
 
 # TODO use rspec
