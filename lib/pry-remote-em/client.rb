@@ -145,7 +145,11 @@ module PryRemoteEm
             send_data({:m => l[1..-1]})
           elsif '.' == l[0]
             send_data({:s => l[1..-1]})
-            @keyboard = EM.open_keyboard(Keyboard, self)
+            if Gem.loaded_specs["eventmachine"].version < Gem::Version.new("1.0.0.beta4")
+              Kernel.puts "\033[1minteractive shell commands are not well supported when running on EventMachine prior 1.0.0.beta4\033[0m"
+            else
+              @keyboard = EM.open_keyboard(Keyboard, self)
+            end
           else
             send_data(l)
           end # "!!" == l[0..1]
