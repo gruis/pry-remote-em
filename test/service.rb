@@ -1,6 +1,5 @@
 #!/usr/bin/env ruby
 require 'pry-remote-em/server'
-require 'logger'
 
 
 auth_hash = {'caleb' => 'crane', 'john' => 'lowski'}

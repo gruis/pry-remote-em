@@ -1,4 +1,5 @@
 require 'pry'
+require 'logger'
 require 'pry-remote-em'
 # How it works with Pry
 #
@@ -59,7 +60,7 @@ module PryRemoteEm
           raise e
         end
         scheme = opts[:tls] ? 'pryems' : 'pryem'
-        Kernel.puts "[pry-remote-em] listening for connections on #{scheme}://#{host}:#{port}/"
+        (opts[:logger] || ::Logger.new(STDERR)).info("[pry-remote-em] listening for connections on #{scheme}://#{host}:#{port}/")
       end # run(obj, host = DEFHOST, port = DEFPORT)
 
       # The list of pry-remote-em connections for a given object, or the list of all pry-remote-em
@@ -84,6 +85,7 @@ module PryRemoteEm
     def initialize(obj, opts = {:tls => false})
       @obj        = obj
       @opts       = opts
+      @log        = opts[:logger] || ::Logger.new(STDERR)
       # Blocks that will be called on each authentication attempt, prior checking the credentials
       @auth_attempt_cbs = []
       # All authentication attempts that occured before an auth callback was registered
@@ -120,19 +122,19 @@ module PryRemoteEm
       Pry.config.system, @old_system = PryRemoteEm::Server::System, Pry.config.system
       @auth_required  = @auth
       port, ip        = Socket.unpack_sockaddr_in(get_peername)
-      Kernel.puts "[pry-remote-em] received client connection from #{ip}:#{port}"
+      @log.info("[pry-remote-em] received client connection from #{ip}:#{port}")
       send_data({:g => "PryRemoteEm #{VERSION} #{@opts[:tls] ? 'pryems' : 'pryem'}"})
       @opts[:tls] ? start_tls : (@auth_required && send_data({:a => false}))
       PryRemoteEm::Server.register(@obj, self)
     end
 
     def start_tls
-      Kernel.puts "[pry-remote-em] starting TLS (#{peer_ip}:#{peer_port})"
+      @log.debug("[pry-remote-em] starting TLS (#{peer_ip}:#{peer_port})")
       super(@opts[:tls].is_a?(Hash) ? @opts[:tls] : {})
     end
 
     def ssl_handshake_completed
-      Kernel.puts "[pry-remote-em] TLS connection established (#{peer_ip}:#{peer_port})"
+      @log.info("[pry-remote-em] TLS connection established (#{peer_ip}:#{peer_port})")
       send_data({:a => false}) if @auth_required
     end
 
@@ -175,7 +177,7 @@ module PryRemoteEm
           if @auth_tries <= 0
             msg = "max authentication attempts reached"
             send_data({:a => msg})
-            Kernel.puts "[pry-remote-em] #{msg} (#{peer_ip}:#{peer_port})"
+            @log.debug("[pry-remote-em] #{msg} (#{peer_ip}:#{peer_port})")
             return close_connection_after_writing
           end
           @auth_tries -= 1
@@ -206,7 +208,7 @@ module PryRemoteEm
       Pry.config.pager  = @old_pager
       Pry.config.system = @old_system
       PryRemoteEm::Server.unregister(@obj, self)
-      Kernel.puts "[pry-remote-em] remote session terminated (#{peer_ip}:#{peer_port})"
+      @log.debug("[pry-remote-em] remote session terminated (#{peer_ip}:#{peer_port})")
     end
 
     def peers(all = false)
