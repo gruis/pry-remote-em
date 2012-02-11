@@ -1,2 +1,5 @@
 *.gem
 tags
+.DS_Store
+doc
+.yardoc

@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 require 'pry-remote-em/server'
+require 'logger'
 
 
 auth_hash = {'caleb' => 'crane', 'john' => 'lowski'}
@@ -23,7 +24,6 @@ class Foo
   end
 end
 
-
 anon_obj = Class.new do
   def keys
     [:encoding, :weather]
@@ -35,16 +35,38 @@ anon_obj = Class.new do
     :cloudy
   end
 end
+
+log         = ::Logger.new(STDERR)
+auth_logger = lambda do |pry|
+  pry.auth_attempt do |user, ip|
+    log.info("got an authentication attempt for #{user} from #{ip}")
+  end
+  pry.auth_fail do |user, ip|
+    log.fatal("failed authentication attempt for #{user} from #{ip}")
+  end
+  pry.auth_ok do |user, ip|
+    log.info("successful authentication for #{user} from #{ip}")
+  end
+end
+
+
 EM.run{
   Foo.new(auth_hash)
   anon_obj.new.remote_pry_em('localhost', :auto, :tls => true, :target => binding)
   anon_obj.new.remote_pry_em('localhost', :auto, :tls => true)
   anon_obj.new.remote_pry_em('0.0.0.0', :auto, :tls => true)
-  anon_obj.new.remote_pry_em('localhost', :auto, :tls => true, :auth => auth_hash)
-  anon_obj.new.remote_pry_em('localhost', :auto, :tls => true, :auth => auth_anon)
-  anon_obj.new.remote_pry_em('localhost', :auto, :tls => true, :auth => Authenticator.new(auth_hash))
-
-  anon_obj.new.remote_pry_em('localhost', :auto, :auth => auth_hash)
+  anon_obj.new.remote_pry_em('localhost', :auto, :tls => true, :auth => auth_hash) do |pry|
+    auth_logger.call(pry)
+  end
+  anon_obj.new.remote_pry_em('localhost', :auto, :tls => true, :auth => auth_anon) do |pry|
+    auth_logger.call(pry)
+  end
+  anon_obj.new.remote_pry_em('localhost', :auto, :tls => true, :auth => Authenticator.new(auth_hash)) do |pry|
+    auth_logger.call(pry)
+  end
+  anon_obj.new.remote_pry_em('localhost', :auto, :auth => auth_hash) do |pry|
+    auth_logger.call(pry)
+  end
   anon_obj.new.remote_pry_em('localhost', :auto)
 }
 

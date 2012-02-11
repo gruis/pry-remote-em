@@ -42,6 +42,7 @@ module PryRemoteEm
           EM.start_server(host, port, PryRemoteEm::Server, obj, opts) do |pre|
             Fiber.new {
               begin
+                yield pre if block_given?
                 Pry.start(obj, :input => pre, :output => pre)
               ensure
                 pre.close_connection
@@ -82,8 +83,24 @@ module PryRemoteEm
 
     def initialize(obj, opts = {:tls => false})
       @obj        = obj
-      @after_auth = []
       @opts       = opts
+      # Blocks that will be called on each authentication attempt, prior checking the credentials
+      @auth_attempt_cbs = []
+      # All authentication attempts that occured before an auth callback was registered
+      @auth_attempts    = []
+      # Blocks that will be called on each failed authentication attempt
+      @auth_fail_cbs    = []
+      # All failed authentication attempts that occured before an auth callback was reigstered
+      @auth_fails       = []
+      # Blocks that will be called on successful authentication attempt
+      @auth_ok_cbs      = []
+      # All successful authentication attemps that occured before the auth ok callbacks were registered
+      @auth_oks         = []
+
+      # The number maximum number of authentication attempts that are permitted
+      @auth_tries       = 5
+      # Data to be sent after the user successfully authenticates if authentication is required
+      @after_auth       = []
       return unless (a = opts[:auth])
       if a.is_a?(Proc)
         return fail("auth handler Procs must take two arguments not (#{a.arity})") unless a.arity == 2
@@ -95,7 +112,6 @@ module PryRemoteEm
         return error("auth handler objects must respond to :call, or :[]") unless a.respond_to?(:[])
         @auth = lambda {|u,p| a[u] && a[u] == p }
       end
-      @auth_tries = 5
     end
 
     def post_init
@@ -150,9 +166,12 @@ module PryRemoteEm
       elsif j['a'] # authentication response
         return send_data({:a => true}) if !@auth || !@auth_required
         return send_data({:a => 'auth data must be a two element array'}) unless j['a'].is_a?(Array) && j['a'].length == 2
+        auth_attempt(j['a'][0], peer_ip)
         unless (@auth_required = !@auth.call(*j['a']))
+          auth_ok(j['a'][0], peer_ip)
           authenticated!
         else
+         auth_fail(j['a'][0], peer_ip)
           if @auth_tries <= 0
             msg = "max authentication attempts reached"
             send_data({:a => msg})
@@ -209,6 +228,45 @@ module PryRemoteEm
     def send_bmessage(msg)
       @auth_required ?  @after_auth.push({:mb => msg}) : send_data({:mb => msg})
     end
+
+    # Callbacks for events on the server
+
+    # Registers a block to call when authentication is attempted.
+    # @overload auth_attempt(&blk)
+    #   @yield [user, ip] a block to call on each authentication attempt
+    #   @yieldparam [String] user
+    #   @yieldparam [String] ip
+    def auth_attempt(*args, &blk)
+      block_given? ? @auth_attempt_cbs << blk : @auth_attempts.push(args)
+      while (auth_data = @auth_attempts.shift)
+        @auth_attempt_cbs.each { |cb| cb.call(*auth_data) }
+      end
+    end # auth_attempt(*args, &blk)
+
+    # Registers a block to call when authentication fails.
+    # @overload auth_fail(&blk)
+    #   @yield [user, ip] a block to call after each failed authentication attempt
+    #   @yieldparam [String] user
+    #   @yieldparam [String] ip
+    def auth_fail(*args, &blk)
+      block_given? ? @auth_fail_cbs << blk : @auth_fails.push(args)
+      while (fail_data = @auth_fails.shift)
+        @auth_fail_cbs.each { |cb| cb.call(*fail_data) }
+      end
+    end # auth_fail(*args, &blk)
+
+    # Registers a block to call when authentication succeeds.
+    # @overload auth_ok(&blk)
+    #   @yield [user, ip] a block to call after each successful authentication attempt
+    #   @yieldparam [String] user
+    #   @yieldparam [String] ip
+    def auth_ok(*args, &blk)
+      block_given? ? @auth_ok_cbs << blk : @auth_oks.push(args)
+      while (ok_data = @auth_oks.shift)
+        @auth_ok_cbs.each { |cb| cb.call(*ok_data) }
+      end
+    end # auth_fail(*args, &blk)
+
 
     # Methods that make Server compatible with Pry
 
