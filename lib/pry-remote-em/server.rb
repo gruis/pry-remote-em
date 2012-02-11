@@ -36,6 +36,15 @@ module PryRemoteEm
     include JsonProto
 
     class << self
+      # Start a pry-remote-em server
+      # @param [Object] obj the object to bind pry to
+      # @param [String] ip the ip address to listen on
+      # @param [Fixnum, Symbol] port the port to listen on - if :auto the next available port will be taken
+      # @param [Hash] opts
+      # @option opts [Boolean] :tls require SSL encryption
+      # @option opts [Logger] :logger
+      # @option opts [Proc, Object] :auth require user authentication - see README
+      # @option opts [Boolean] :allow_shell_cmds
       def run(obj, host = DEFHOST, port = DEFPORT, opts = {:tls => false})
         tries = :auto == port ? 100.tap{ port = DEFPORT } : 1
         # TODO raise a useful exception not RuntimeError

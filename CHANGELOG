@@ -1,3 +1,8 @@
+0.6.0
+- adds shell command support
+- adds auth event callbacks
+- adds configurable logger
+
 0.5.0
 - adds simple messaging with '!' and '!!'
 

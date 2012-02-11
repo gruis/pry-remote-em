@@ -312,11 +312,65 @@ process.
 
 Message will not be displayed by the clients until the presses enter.
 
+## Authentication Event Callbacks
+Available events are:
+
+ - auth_attempt - called each time authentication is attempted
+ - auth_fail    - called each time authentication fails
+ - auth_ok      - called each time authentication succeeds
+
+```ruby
+log         = ::Logger.new('/var/log/auth.pry.log')
+obj.new.remote_pry_em('0.0.0.0', :auto, :tls => true, :auth => auth_hash) do |pry|
+  pry.auth_attempt do |user, ip|
+    log.info("got an authentication attempt for #{user} from #{ip}")
+  end
+  pry.auth_fail do |user, ip|
+    log.fatal("failed authentication attempt for #{user} from #{ip}")
+  end
+  pry.auth_ok do |user, ip|
+    log.info("successful authentication for #{user} from #{ip}")
+  end
+end
+```
+
+## Shell Commands
+If the pry-remote-em service is started with the ``:allow_shell_cmds =>
+true`` option set it will spawn sub processes for any command prefixed
+with a '.'.
+
+```
+[1] pry(#<#<Class:0x007fe0be072618>>)> .uname -a
+Darwin kiff.local 11.3.0 Darwin Kernel Version 11.3.0: Thu Jan 12 18:47:41 PST 2012; root:xnu-1699.24.23~1/RELEASE_X86_64 x86_64
+```
+
+Interactive commands like ``vim`` will probably not behave
+appropriately.
+
+
+If the server was not started with the ``allow_shell_cmds`` option then
+all shell commands will be met with a rejection notice.
+
+```
+[1] pry(#<#<Class:0x007fe0be072618>>)> .ls
+shell commands are not allowed by this server
+```
+
+The server will also log whenever a user attempts to execute a shell
+command.
+
+```
+W, [2012-02-11T19:21:27.663941 #36471]  WARN -- : executing shell command 'ls -al' for  (127.0.0.1:63878)
+```
+
+```
+E, [2012-02-11T19:23:40.770380 #36471] ERROR -- : refused to execute shell command 'ls' for caleb (127.0.0.1:63891)
+```
+
 # Missing Features
 
   - AutoDiscovery/Broker [ticket](https://github.com/simulacre/pry-remote-em/issues/11)
   - HTTP Transport [ticket](https://github.com/simulacre/pry-remote-em/issues/12)
-  - Shell Commands [ticket](https://github.com/simulacre/pry-remote-em/issues/15)
   - Vi mode editing - RbReadline doesn't support vi edit mode. I'm looking into contributing it. PryRemoteEm uses rb-readline because the STLIB version doesn't play nice with Fibers.
   - Ssh key based authentication
 
