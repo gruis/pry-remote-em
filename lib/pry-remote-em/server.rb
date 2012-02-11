@@ -1,6 +1,7 @@
 require 'pry'
 require 'logger'
 require 'pry-remote-em'
+require 'pry-remote-em/server/shell_cmd'
 # How it works with Pry
 #
 # When PryRemoteEm.run is called it registers with EventMachine for a given ip
@@ -83,9 +84,10 @@ module PryRemoteEm
     end # class << self
 
     def initialize(obj, opts = {:tls => false})
-      @obj        = obj
-      @opts       = opts
-      @log        = opts[:logger] || ::Logger.new(STDERR)
+      @obj              = obj
+      @opts             = opts
+      @allow_shell_cmds = opts[:allow_shell_cmds]
+      @log              = opts[:logger] || ::Logger.new(STDERR)
       # Blocks that will be called on each authentication attempt, prior checking the credentials
       @auth_attempt_cbs = []
       # All authentication attempts that occured before an auth callback was registered
@@ -119,7 +121,6 @@ module PryRemoteEm
     def post_init
       @lines = []
       Pry.config.pager, @old_pager = false, Pry.config.pager
-      Pry.config.system, @old_system = PryRemoteEm::Server::System, Pry.config.system
       @auth_required  = @auth
       port, ip        = Socket.unpack_sockaddr_in(get_peername)
       @log.info("[pry-remote-em] received client connection from #{ip}:#{port}")
@@ -170,6 +171,7 @@ module PryRemoteEm
         return send_data({:a => 'auth data must be a two element array'}) unless j['a'].is_a?(Array) && j['a'].length == 2
         auth_attempt(j['a'][0], peer_ip)
         unless (@auth_required = !@auth.call(*j['a']))
+          @user = j['a'][0]
           auth_ok(j['a'][0], peer_ip)
           authenticated!
         else
@@ -192,6 +194,24 @@ module PryRemoteEm
         peers(:all).each { |peer| peer.send_bmessage(j['b']) }
         send_last_prompt
 
+      elsif j['s'] # shell command
+        # TODO confirm shell command's are allowed
+        unless @allow_shell_cmds
+          puts "\033[1mshell commands are not allowed by this server\033[0m"
+          @log.error("refused to execute shell command '#{j['s']}' for #{@user} (#{peer_ip}:#{peer_port})")
+          send_data({:sc => -1})
+          send_last_prompt
+        else
+          @log.warn("executing shell command '#{j['s']}' for #{@user} (#{peer_ip}:#{peer_port})")
+          @shell_cmd = EM.popen3(j['s'], ShellCmd, self)
+        end
+
+      elsif j['sd'] # shell data
+        @shell_cmd.send_data(j['sd'])
+
+      elsif j['ssc'] # shell ctrl-c
+        @shell_cmd.close_connection
+
       else
         warn "received unexpected data: #{j.inspect}"
       end # j['d']
@@ -206,7 +226,6 @@ module PryRemoteEm
 
     def unbind
       Pry.config.pager  = @old_pager
-      Pry.config.system = @old_system
       PryRemoteEm::Server.unregister(@obj, self)
       @log.debug("[pry-remote-em] remote session terminated (#{peer_ip}:#{peer_port})")
     end
@@ -300,10 +319,6 @@ module PryRemoteEm
 
     def flush
       true
-    end
-
-    System = proc do |output, cmd, _|
-      output.puts("shell commands are not yet supported")
     end
   end # module::Server
 end # module::PryRemoteEm

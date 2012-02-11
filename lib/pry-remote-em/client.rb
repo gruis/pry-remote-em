@@ -1,5 +1,6 @@
 require 'uri'
 require 'pry-remote-em'
+require 'pry-remote-em/client/keyboard'
 require 'pry/helpers/base_helpers'
 #require "readline"   # doesn't work with Fiber.yield
         #  - /Users/caleb/src/pry-remote-em/lib/pry-remote-em/client.rb:45:in `yield': fiber called across stack rewinding barrier (FiberError)
@@ -69,6 +70,15 @@ module PryRemoteEm
       elsif j['mb']
         Kernel.puts "\033[1m!! msg: " + j['mb'] + "\033[0m"
 
+      elsif j['s'] # shell command output
+        Kernel.puts j['s']
+
+      elsif j.include?('sc') # command completed
+        if @keyboard
+          @keyboard.bufferio(true)
+          @keyboard.close_connection
+        end
+
       elsif j['g'] # server banner
         Kernel.puts "[pry-remote-em] remote is #{j['g']}"
         name, version, scheme = j['g'].split(" ", 3)
@@ -133,6 +143,9 @@ module PryRemoteEm
             send_data({:b => l[2..-1]})
           elsif '!' == l[0]
             send_data({:m => l[1..-1]})
+          elsif '.' == l[0]
+            send_data({:s => l[1..-1]})
+            @keyboard = EM.open_keyboard(Keyboard, self)
           else
             send_data(l)
           end # "!!" == l[0..1]

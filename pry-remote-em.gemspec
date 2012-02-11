@@ -15,5 +15,6 @@ Gem::Specification.new do |s|
   s.add_dependency 'eventmachine'
   s.add_dependency 'pry', '~> 0.9.6'
   s.add_dependency 'rb-readline'
+  s.add_dependency 'termios'
   s.add_dependency 'highline'
 end
