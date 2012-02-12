@@ -1,3 +1,6 @@
+0.6.1
+- messages are tagged with user that sent them if authentication is being used
+
 0.6.0
 - adds shell command support
 - adds auth event callbacks

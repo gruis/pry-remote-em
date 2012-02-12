@@ -196,11 +196,11 @@ module PryRemoteEm
         return send_data({:a => !@auth_required})
 
       elsif j['m'] # message all peer connections
-        peers.each { |peer| peer.send_message(j['m']) }
+        peers.each { |peer| peer.send_message(j['m'], @user) }
         send_last_prompt
 
       elsif j['b'] # broadcast message
-        peers(:all).each { |peer| peer.send_bmessage(j['b']) }
+        peers(:all).each { |peer| peer.send_bmessage(j['b'], @user) }
         send_last_prompt
 
       elsif j['s'] # shell command
@@ -250,12 +250,14 @@ module PryRemoteEm
     end
 
     # Sends a chat message to the client.
-    def send_message(msg)
+    def send_message(msg, from = nil)
+      msg = "#{msg} (@#{from})" unless from.nil?
       @auth_required ?  @after_auth.push({:m => msg}) : send_data({:m => msg})
     end
     #
     # Sends a chat message to the client.
-    def send_bmessage(msg)
+    def send_bmessage(msg, from = nil)
+      msg = "#{msg} (@#{from})" unless from.nil?
       @auth_required ?  @after_auth.push({:mb => msg}) : send_data({:mb => msg})
     end
 
