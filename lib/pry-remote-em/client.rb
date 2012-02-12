@@ -66,10 +66,12 @@ module PryRemoteEm
         stagger_output j['d'], $stdout # Pry::Helpers::BaseHelpers
 
       elsif j['m']
-        Kernel.puts "\033[1m! msg: " + j['m'] + "\033[0m"
+        RbReadline.display_matches(["! msg: " + j['m']])
+        #Kernel.puts "\033[1m! msg: " + j['m'] + "\033[0m"
 
       elsif j['mb']
-        Kernel.puts "\033[1m!! msg: " + j['mb'] + "\033[0m"
+        RbReadline.display_matches(["! msg: " + j['m']])
+        #Kernel.puts "\033[1m!! msg: " + j['mb'] + "\033[0m"
 
       elsif j['s'] # shell command output
         Kernel.puts j['s']
