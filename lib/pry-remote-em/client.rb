@@ -28,6 +28,7 @@ module PryRemoteEm
 
     def initialize(opts = {})
       @opts = opts
+      @keyboard = EM.open_keyboard(Keyboard, self)
       if (a = opts[:auth])
         if a.respond_to?(:call)
           @auth = a
@@ -74,10 +75,7 @@ module PryRemoteEm
         Kernel.puts j['s']
 
       elsif j.include?('sc') # command completed
-        if @keyboard
-          @keyboard.bufferio(true)
-          @keyboard.close_connection
-        end
+        # do nothing
 
       elsif j['g'] # server banner
         Kernel.puts "[pry-remote-em] remote is #{j['g']}"
@@ -129,6 +127,7 @@ module PryRemoteEm
 
     def unbind
       @unbound = true
+      @keyboard && @keyboard.close_connection
       Kernel.puts "[pry-remote-em] session terminated"
       # prior to 1.0.0.b4 error? returns true here even when it's not
       return succeed if Gem.loaded_specs["eventmachine"].version < Gem::Version.new("1.0.0.beta4")
@@ -148,7 +147,7 @@ module PryRemoteEm
             if Gem.loaded_specs["eventmachine"].version < Gem::Version.new("1.0.0.beta4")
               Kernel.puts "\033[1minteractive shell commands are not well supported when running on EventMachine prior 1.0.0.beta4\033[0m"
             else
-              @keyboard = EM.open_keyboard(Keyboard, self)
+              #@keyboard = EM.open_keyboard(Keyboard, self)
             end
           else
             send_data(l)
