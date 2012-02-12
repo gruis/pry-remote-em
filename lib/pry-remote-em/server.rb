@@ -219,7 +219,7 @@ module PryRemoteEm
         @shell_cmd.send_data(j['sd'])
 
       elsif j['ssc'] # shell ctrl-c
-        @shell_cmd.close_connection
+        @shell_cmd && @shell_cmd.close_connection
 
       else
         warn "received unexpected data: #{j.inspect}"
