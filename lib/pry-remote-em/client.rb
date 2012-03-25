@@ -151,8 +151,10 @@ module PryRemoteEm
               @keyboard = EM.open_keyboard(Keyboard, self)
             end
           elsif 'reset' == l.strip
-            Kernel.puts "\033[1mreset command is not supported\033[0m"
-            readline(prompt)
+            # TODO work with 'bundle exec pry-remote-em ...'
+            # TODO work with 'ruby -I lib bin/pry-remote-em ...'
+            Kernel.puts "\033[1m#{$0} #{ARGV.join(' ')}\033[0m"
+            exec("#{$0} #{ARGV.join(' ')}")
           else
             send_data(l)
           end # "!!" == l[0..1]
