@@ -3,3 +3,5 @@ tags
 .DS_Store
 doc
 .yardoc
+Gemfile
+Gemfile.lock

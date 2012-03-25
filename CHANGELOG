@@ -1,3 +1,6 @@
+0.6.2
+- handle reset command appropriately
+
 0.6.1
 - messages are tagged with user that sent them if authentication is being used
 
