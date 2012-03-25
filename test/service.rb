@@ -50,6 +50,7 @@ end
 
 
 EM.run{
+  binding.remote_pry_em
   Foo.new(auth_hash)
   anon_obj.new.remote_pry_em('localhost', :auto, :tls => true, :target => binding)
   anon_obj.new.remote_pry_em('localhost', :auto, :tls => true, :allow_shell_cmds => true)
