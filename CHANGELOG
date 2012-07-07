@@ -1,3 +1,7 @@
+0.7.0
+- json specific parts of wire protocol are abstracted away from client and server
+- json proto is a bit more robust: delimeter can be a part of data and CRC is performed
+
 0.6.2
 - handle reset command appropriately
 

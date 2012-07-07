@@ -11,7 +11,7 @@ require "rb-readline" # doesn't provide vi-mode support :(
 module PryRemoteEm
   module Client
     include EM::Deferrable
-    include JsonProto
+    include Proto
     include Pry::Helpers::BaseHelpers
 
     class << self
@@ -53,61 +53,68 @@ module PryRemoteEm
 
     def auto_complete(word)
       @waiting = Fiber.current
-      send_data({:c => word})
+      send_completion(word)
       return Fiber.yield
     end
 
-    def receive_json(j)
-      if j['p'] # prompt
-        readline(j['p'])
+    def receive_prompt(p)
+      readline(p)
+    end
 
-      elsif j['d'] # printable data
-        stagger_output j['d'], $stdout # Pry::Helpers::BaseHelpers
-
-      elsif j['m']
-        Kernel.puts "\033[1m! msg: " + j['m'] + "\033[0m"
-
-      elsif j['mb']
-        Kernel.puts "\033[1m!! msg: " + j['mb'] + "\033[0m"
-
-      elsif j['s'] # shell command output
-        Kernel.puts j['s']
-
-      elsif j.include?('sc') # command completed
-        if @keyboard
-          @keyboard.bufferio(true)
-          @keyboard.close_connection
-        end
-
-      elsif j['g'] # server banner
-        Kernel.puts "[pry-remote-em] remote is #{j['g']}"
-        name, version, scheme = j['g'].split(" ", 3)
-        # TODO parse version and compare against a Gem style matcher
-        # https://github.com/simulacre/pry-remote-em/issues/21
-        return fail("[pry-remote-em] incompatible version #{version}") if version != PryRemoteEm::VERSION
-        if scheme.nil? || scheme != (reqscheme = @opts[:tls] ? 'pryems' : 'pryem')
-          if scheme == 'pryems' && defined?(::OpenSSL)
-            @opts[:tls] = true
-          else
-            return fail("[pry-remote-em] server doesn't support required scheme #{reqscheme.dump}")
-          end # scheme == 'pryems' && defined?(::OpenSSL)
-        end
-        @nego_timer.cancel
-        @negotiated = true
-        start_tls if @opts[:tls]
-
-      elsif j['c'] # tab completion response
-        @waiting, f = nil, @waiting
-        f.resume(j['c']) if f
-
-      elsif j.include?('a') # authentication demand
-        return fail j['a'] if j['a'].is_a?(String)
-        return authenticate if j['a']   == false
-        @authenticated = true if j['a'] == true
-
-      else
-        warn "[pry-remote-em] received unexpected data: #{j.inspect}"
+    def receive_banner(name, version, scheme)
+      Kernel.puts "[pry-remote-em] remote is #{name} #{version} #{scheme}"
+      # TODO parse version and compare against a Gem style matcher
+      # https://github.com/simulacre/pry-remote-em/issues/21
+      return fail("[pry-remote-em] incompatible version #{version}") if version != PryRemoteEm::VERSION
+      if scheme.nil? || scheme != (reqscheme = @opts[:tls] ? 'pryems' : 'pryem')
+        if scheme == 'pryems' && defined?(::OpenSSL)
+          @opts[:tls] = true
+        else
+          return fail("[pry-remote-em] server doesn't support required scheme #{reqscheme.dump}")
+        end # scheme == 'pryems' && defined?(::OpenSSL)
       end
+      @nego_timer.cancel
+      @negotiated = true
+      start_tls if @opts[:tls]
+    end
+
+    def receive_auth(a)
+      return fail a if a.is_a?(String)
+      return authenticate if a == false
+      @authenticated = true if a == true
+    end
+
+    def receive_msg(m)
+      Kernel.puts "\033[1m! msg: " + m + "\033[0m"
+    end
+
+    def receive_msg_bcast(mb)
+      Kernel.puts "\033[1m!! msg: " + mb + "\033[0m"
+    end
+
+    def receive_shell_cmd(c)
+      Kernel.puts c
+    end
+
+    def receive_shell_result(c)
+      if @keyboard
+        @keyboard.bufferio(true)
+        @keyboard.close_connection
+      end
+    end
+
+    def receive_completion(c)
+      @waiting, f = nil, @waiting
+      f.resume(c) if f
+    end
+
+    def receive_raw(r)
+      # Pry::Helpers::BaseHelpers
+      stagger_output(r, $stdout)
+    end
+
+    def receive_unknown(j)
+      warn "[pry-remote-em] received unexpected data: #{j.inspect}"
     end
 
     def authenticate
@@ -115,7 +122,7 @@ module PryRemoteEm
       return fail("[pry-remote-em] can't authenticate before negotiation complete") unless @negotiated
       user, pass = @auth.call
       return fail("[pry-remote-em] expected #{@auth} to return a user and password") unless user && pass
-      send_data({:a => [user, pass]})
+      send_auth([user, pass])
     end # authenticate
 
     def ssl_handshake_completed
@@ -140,11 +147,11 @@ module PryRemoteEm
         Fiber.new {
           l = Readline.readline(prompt, !prompt.nil?)
           if '!!' == l[0..1]
-            send_data({:b => l[2..-1]})
+            send_msg_bcast(l[2..-1])
           elsif '!' == l[0]
-            send_data({:m => l[1..-1]})
+            send_msg(l[1..-1])
           elsif '.' == l[0]
-            send_data({:s => l[1..-1]})
+            send_shell_cmd(l[1..-1])
             if Gem.loaded_specs["eventmachine"].version < Gem::Version.new("1.0.0.beta4")
               Kernel.puts "\033[1minteractive shell commands are not well supported when running on EventMachine prior 1.0.0.beta4\033[0m"
             else
@@ -156,7 +163,7 @@ module PryRemoteEm
             Kernel.puts "\033[1m#{$0} #{ARGV.join(' ')}\033[0m"
             exec("#{$0} #{ARGV.join(' ')}")
           else
-            send_data(l)
+            send_raw(l)
           end # "!!" == l[0..1]
         }.resume
       end

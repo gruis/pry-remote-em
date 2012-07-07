@@ -2,6 +2,7 @@ require 'pry'
 require 'logger'
 require 'pry-remote-em'
 require 'pry-remote-em/server/shell_cmd'
+
 # How it works with Pry
 #
 # When PryRemoteEm.run is called it registers with EventMachine for a given ip
@@ -26,14 +27,13 @@ require 'pry-remote-em/server/shell_cmd'
 # Pry just interacts with PryRemoteEm as if it were any other blocking Readline
 # object. The important bit is making sure that it is started in a new Fiber that
 # can be paused and resumed as needed. PryRemoteEm#readline pauses it and
-# PryRemoteEm#receive_json resumes it.
+# PryRemoteEm#receive_raw resumes it.
 #
 # Reference:
 # http://www.igvita.com/2010/03/22/untangling-evented-code-with-ruby-fibers/
-
 module PryRemoteEm
   module Server
-    include JsonProto
+    include Proto
 
     class << self
       # Start a pry-remote-em server
@@ -133,8 +133,8 @@ module PryRemoteEm
       @auth_required  = @auth
       port, ip        = Socket.unpack_sockaddr_in(get_peername)
       @log.info("[pry-remote-em] received client connection from #{ip}:#{port}")
-      send_data({:g => "PryRemoteEm #{VERSION} #{@opts[:tls] ? 'pryems' : 'pryem'}"})
-      @opts[:tls] ? start_tls : (@auth_required && send_data({:a => false}))
+      send_banner("PryRemoteEm #{VERSION} #{@opts[:tls] ? 'pryems' : 'pryem'}")
+      @opts[:tls] ? start_tls : (@auth_required && send_auth(false))
       PryRemoteEm::Server.register(@obj, self)
     end
 
@@ -145,7 +145,7 @@ module PryRemoteEm
 
     def ssl_handshake_completed
       @log.info("[pry-remote-em] TLS connection established (#{peer_ip}:#{peer_port})")
-      send_data({:a => false}) if @auth_required
+      send_auth(false) if @auth_required
     end
 
     def peer_ip
@@ -162,74 +162,94 @@ module PryRemoteEm
       @peer_port
     end
 
-    def receive_json(j)
-      return send_data({:a => false}) if @auth_required && !j['a']
+    def receive_raw(d)
+      return if require_auth
+      return send_last_prompt if d.nil? || d.empty?
+      @lines.push(*d.split("\n"))
+      if @waiting
+        f, @waiting = @waiting, nil
+        f.resume(@lines.shift)
+      end
+    end
 
-      if j['d'] # just normal data
-        return send_last_prompt if j['d'].empty?
-        @lines.push(*j['d'].split("\n"))
-        if @waiting
-          f, @waiting = @waiting, nil
-          f.resume(@lines.shift)
-        end
-      elsif j['c'] # tab completion request
-        send_data({:c => @compl_proc.call(j['c'])})
+    # tab completion request
+    def receive_completion(c)
+      return if require_auth
+      send_completion(@compl_proc.call(c))
+    end
 
-      elsif j['a'] # authentication response
-        return send_data({:a => true}) if !@auth || !@auth_required
-        return send_data({:a => 'auth data must be a two element array'}) unless j['a'].is_a?(Array) && j['a'].length == 2
-        auth_attempt(j['a'][0], peer_ip)
-        unless (@auth_required = !@auth.call(*j['a']))
-          @user = j['a'][0]
-          auth_ok(j['a'][0], peer_ip)
-          authenticated!
-        else
-         auth_fail(j['a'][0], peer_ip)
-          if @auth_tries <= 0
-            msg = "max authentication attempts reached"
-            send_data({:a => msg})
-            @log.debug("[pry-remote-em] #{msg} (#{peer_ip}:#{peer_port})")
-            return close_connection_after_writing
-          end
-          @auth_tries -= 1
-        end
-        return send_data({:a => !@auth_required})
-
-      elsif j['m'] # message all peer connections
-        peers.each { |peer| peer.send_message(j['m'], @user) }
-        send_last_prompt
-
-      elsif j['b'] # broadcast message
-        peers(:all).each { |peer| peer.send_bmessage(j['b'], @user) }
-        send_last_prompt
-
-      elsif j['s'] # shell command
-        # TODO confirm shell command's are allowed
-        unless @allow_shell_cmds
-          puts "\033[1mshell commands are not allowed by this server\033[0m"
-          @log.error("refused to execute shell command '#{j['s']}' for #{@user} (#{peer_ip}:#{peer_port})")
-          send_data({:sc => -1})
-          send_last_prompt
-        else
-          @log.warn("executing shell command '#{j['s']}' for #{@user} (#{peer_ip}:#{peer_port})")
-          @shell_cmd = EM.popen3(j['s'], ShellCmd, self)
-        end
-
-      elsif j['sd'] # shell data
-        @shell_cmd.send_data(j['sd'])
-
-      elsif j['ssc'] # shell ctrl-c
-        @shell_cmd.close_connection
-
+    def receive_auth(user, pass)
+      return send_auth(true) if !@auth || !@auth_required
+      return send_auth('auth data must include a user and pass') if user.nil? || pass.nil?
+      auth_attempt(user, peer_ip)
+      unless (@auth_required = !@auth.call(user, pass))
+        @user = user
+        auth_ok(user, peer_ip)
+        authenticated!
       else
-        warn "received unexpected data: #{j.inspect}"
-      end # j['d']
-    end # receive_json(j)
+       auth_fail(user, peer_ip)
+        if @auth_tries <= 0
+          msg = "max authentication attempts reached"
+          send_auth(msg)
+          @log.debug("[pry-remote-em] #{msg} (#{peer_ip}:#{peer_port})")
+          return close_connection_after_writing
+        end
+        @auth_tries -= 1
+      end
+      return send_auth(!@auth_required)
+    end
 
+    def receive_msg(m)
+      return if require_auth
+      peers.each { |peer| peer.send_message(m, @user) }
+      send_last_prompt
+    end
+
+    def receive_msg_bcast(mb)
+      return if require_auth
+      peers(:all).each { |peer| peer.send_bmessage(mb, @user) }
+      send_last_prompt
+    end
+
+    def receive_shell_cmd(cmd)
+      return if require_auth
+      unless @allow_shell_cmds
+        puts "\033[1mshell commands are not allowed by this server\033[0m"
+        @log.error("refused to execute shell command '#{cmd}' for #{@user} (#{peer_ip}:#{peer_port})")
+        send_shell_result(-1)
+        send_last_prompt
+      else
+        @log.warn("executing shell command '#{cmd}' for #{@user} (#{peer_ip}:#{peer_port})")
+        @shell_cmd = EM.popen3(cmd, ShellCmd, self)
+      end
+    end
+
+    def receive_shell_data(d)
+      return if require_auth
+      @shell_cmd.send_data(d)
+    end
+
+    def receive_shell_sig(type)
+      return if require_auth
+      type == :term && @shell_cmd.close_connection
+    end
+
+    def receive_unknown(j)
+      return if require_auth
+      warn "received unexpected data: #{j.inspect}"
+      send_error("received unexpected data: #{j.inspect}")
+      send_last_prompt
+    end
+
+    def require_auth
+      return false if !@auth_required
+      send_auth(false)
+      true
+    end
 
     def authenticated!
       while (aa = @after_auth.shift)
-        send_data(aa)
+        aa.call
       end
     end
 
@@ -246,19 +266,24 @@ module PryRemoteEm
     end
 
     def send_last_prompt
-      @auth_required ? @after_auth.push({:p => @last_prompt}) :  send_data({:p => @last_prompt})
+      @auth_required ? (after_auth { send_prompt(@last_prompt) }) :  send_prompt(@last_prompt)
+    end
+
+    def after_auth(&blk)
+      # TODO perhaps replace with #auth_ok
+      @after_auth.push(blk)
     end
 
     # Sends a chat message to the client.
     def send_message(msg, from = nil)
       msg = "#{msg} (@#{from})" unless from.nil?
-      @auth_required ?  @after_auth.push({:m => msg}) : send_data({:m => msg})
+      @auth_required ?  (after_auth {send_msg(msg)}) : send_msg(msg)
     end
     #
     # Sends a chat message to the client.
     def send_bmessage(msg, from = nil)
       msg = "#{msg} (@#{from})" unless from.nil?
-      @auth_required ?  @after_auth.push({:mb => msg}) : send_data({:mb => msg})
+      @auth_required ?  (after_auth {send_msg_bcast(msg)}) : send_msg_bcast(msg)
     end
 
     # Callbacks for events on the server
@@ -299,19 +324,22 @@ module PryRemoteEm
       end
     end # auth_fail(*args, &blk)
 
+    def send_error(msg)
+      puts "\033[31m#{msg}\033[0m"
+    end
 
     # Methods that make Server compatible with Pry
 
     def readline(prompt)
       @last_prompt = prompt
-      @auth_required ? @after_auth.push({:p => prompt}) : send_data({:p => prompt})
+      @auth_required ? (after_auth { send_prompt(prompt) }) : send_prompt(prompt)
       return @lines.shift unless @lines.empty?
       @waiting = Fiber.current
       return Fiber.yield
     end
 
     def print(val)
-      @auth_required ? @after_auth.push({:d => val}) : send_data({:d => val})
+      @auth_required ? (after_auth { send_raw(val) }) : send_raw(val)
     end
     alias :write :print
 

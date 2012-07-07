@@ -4,10 +4,9 @@ rescue LoadError
   warn "OpenSSL support is not available"
 end
 require 'pry-remote-em/version'
-require 'pry-remote-em/json-proto'
+require 'pry-remote-em/proto'
 require 'eventmachine'
 require 'socket'
-require 'json'
 require "fiber"
 
 module PryRemoteEm
