@@ -76,6 +76,7 @@ module PryRemoteEm
         (opts[:logger] || ::Logger.new(STDERR)).info("[pry-remote-em] listening for connections on #{url}")
         Broker.run(opts[:broker_host] || DEF_BROKERHOST, opts[:broker_port] || DEF_BROKERPORT, opts)
         Broker.register(url, Pry.view_clip(obj.send(:eval, 'self')))
+        EM::PeriodicTimer.new(15) { Broker.register(url, Pry.view_clip(obj.send(:eval, 'self'))) }
         url
       end
 

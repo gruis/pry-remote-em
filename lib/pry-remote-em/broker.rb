@@ -48,6 +48,25 @@ module PryRemoteEm
         client {|c| c.send_unregister_server(server) }
       end
 
+      def watch_heartbeats(url)
+        return if timers[url]
+        timers[url] = EM::PeriodicTimer.new(20) do
+          if !hbeats[url] || (Time.new - hbeats[url]) > 20
+            servers.delete(url)
+            timers[url].cancel
+            timers.delete(url)
+          end
+        end
+      end
+
+      def timers
+        @timers ||= {}
+      end
+
+      def hbeats
+        @hbeats ||= {}
+      end
+
     private
 
       def client(&blk)
@@ -76,12 +95,30 @@ module PryRemoteEm
 
     include Proto
 
-    def log
-      Broker.log
+    def receive_server_list
+      send_server_list(Broker.servers)
+    end
+
+    def receive_register_server(url, name)
+      url                 = URI.parse(url)
+      url.host            = peer_ip if url.host == "0.0.0.0"
+      log.info("[pry-remote-em broker] registered #{url} - #{name.inspect}") unless Broker.servers[url] == name
+      Broker.servers[url] = name
+      Broker.hbeats[url]  = Time.new
+      Broker.watch_heartbeats(url)
+      name
+    end
+
+    def receive_unregister_server(url)
+      Broker.servers.delete(url)
     end
 
     def initialize(opts = {:tls => false}, &blk)
-      @opts = opts
+      @opts   = opts
+    end
+
+    def log
+      Broker.log
     end
 
     def post_init
@@ -114,26 +151,6 @@ module PryRemoteEm
     def ssl_handshake_completed
       log.info("[pry-remote-em broker] TLS connection established (#{peer_ip}:#{peer_port})")
       send_server_list(Broker.servers)
-    end
-
-    def receive_server_list
-      send_server_list(Broker.servers)
-    end
-
-    def receive_register_server(url, name)
-      url      = URI.parse(url)
-      url.host = peer_ip if url.host == "0.0.0.0"
-      Broker.servers[url] = name
-      log.info("[pry-remote-em broker] registered #{url} - #{name.inspect}")
-      name
-    end
-
-    def receive_unregister_server(url)
-      Broker.servers.delete(url)
-    end
-
-    def receive_heartbeat(url)
-
     end
 
   end # module::Broker

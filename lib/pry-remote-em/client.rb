@@ -64,6 +64,10 @@ module PryRemoteEm
     def receive_server_list(list)
       highline    = HighLine.new
       choice      = nil
+      if list.empty?
+        Kernel.puts "\033[33m[pry-remote-em] no servers are registered with the broker\033[0m"
+        Process.exit
+      end
       nm_col_len  = list.values.map(&:length).sort[-1] + 5
       ur_col_len  = list.keys.map(&:length).sort[-1] + 5
       header      = sprintf("| %-3s |  %-#{nm_col_len}s |  %-#{ur_col_len}s |", "id", "name", "url")
@@ -77,7 +81,8 @@ module PryRemoteEm
       table   = table.join("\n")
       puts table
       while choice.nil?
-        choice = highline.ask("connect to: ")
+        choice = highline.ask("(q) to quit\nconnect to: ")
+        return close_connection if ['q', 'quit', 'exit'].include?(choice.downcase)
         choice = choice.to_i.to_s == choice ?
           list[choice.to_i - 1] :
           list.find{|(url, name)| url == choice || name == choice }
