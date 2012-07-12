@@ -71,6 +71,7 @@ module PryRemoteEm
         end
         scheme = opts[:tls] ? 'pryems' : 'pryem'
         (opts[:logger] || ::Logger.new(STDERR)).info("[pry-remote-em] listening for connections on #{scheme}://#{host}:#{port}/")
+        "#{scheme}://#{host}:#{port}/"
       end # run(obj, host = DEFHOST, port = DEFPORT)
 
       # The list of pry-remote-em connections for a given object, or the list of all pry-remote-em

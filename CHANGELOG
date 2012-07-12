@@ -1,4 +1,5 @@
 0.7.0
+- Server.run returns a url (String) with the scheme, host and port of the listening server
 - json specific parts of wire protocol are abstracted away from client and server
 - json proto is a bit more robust: delimeter can be a part of data and CRC is performed
 
