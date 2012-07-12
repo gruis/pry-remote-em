@@ -109,7 +109,6 @@ module PryRemoteEm
 
     def receive_register_server(url, name); end
     def receive_unregister_server(url); end
-    def receive_heartbeat(url); end
     def receive_server_list(list = nil); end
 
     def send_banner(g)

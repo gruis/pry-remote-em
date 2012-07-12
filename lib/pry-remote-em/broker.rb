@@ -8,23 +8,31 @@ module PryRemoteEm
       alias :listening? :listening
 
       def run(host = DEF_BROKERHOST, port = DEF_BROKERPORT, opts = {:tls => false})
-       raise "root permission required for port below 1024 (#{port})" if port < 1024 && Process.euid != 0
-       @host = host
-       @port = port
-       @opts = opts
-       begin
-         EM.start_server(host, port, PryRemoteEm::Broker, opts) do |broker|
-         end
-         log.info("[pry-remote-em broker] listening on #{opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}")
-         @listening = true
-       rescue => e
-         # EM 1.0.0.beta4's message tells us the port is in use; 0.12.10 just says, 'no acceptor'
-         if (e.message.include?('port is in use') || e.message.include?('no acceptor'))
-           # [pry-remote-em broker] a broker is already listening on #{host}:#{port}
-         else
-           raise e
-         end
-       end
+        raise "root permission required for port below 1024 (#{port})" if port < 1024 && Process.euid != 0
+        @host = host
+        @port = port
+        @opts = opts
+        begin
+          EM.start_server(host, port, PryRemoteEm::Broker, opts) do |broker|
+          end
+          log.info("[pry-remote-em broker] listening on #{opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}")
+          @listening = true
+        rescue => e
+          # EM 1.0.0.beta4's message tells us the port is in use; 0.12.10 just says, 'no acceptor'
+          if (e.message.include?('port is in use') || e.message.include?('no acceptor'))
+            # [pry-remote-em broker] a broker is already listening on #{host}:#{port}
+          else
+            raise e
+          end
+        end
+      end
+
+      def restart(tls = (@opts && @opts[:tls]))
+        @opts[:tls] = tls
+        log.info("[pry-remote-em broker] restarting on #{opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}")
+        run(@host, @port, @opts)
+        @waiting   = nil
+        @client    = nil
       end
 
       def opts
@@ -41,7 +49,7 @@ module PryRemoteEm
       end
 
       def register(url, name = 'unknown')
-        client {|c| c.send_register_server(url, name) }
+        client { |c| c.send_register_server(url, name) }
       end
 
       def unregister(server)
@@ -67,6 +75,10 @@ module PryRemoteEm
         @hbeats ||= {}
       end
 
+      def connected?
+        @connected
+      end
+
     private
 
       def client(&blk)
@@ -83,7 +95,7 @@ module PryRemoteEm
           EM.connect(host, port, Client::Broker, @opts) do |client|
             client.errback { |e| raise(e || "broker client error") }
             client.callback do
-              @client = client
+              @client    = client
               while (w = @waiting.shift)
                 w.call(client)
               end
