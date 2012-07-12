@@ -1,6 +1,7 @@
 require 'pry'
 require 'logger'
 require 'pry-remote-em'
+require 'pry-remote-em/broker'
 require 'pry-remote-em/server/shell_cmd'
 
 # How it works with Pry
@@ -69,10 +70,12 @@ module PryRemoteEm
           end
           raise e
         end
-        scheme = opts[:tls] ? 'pryems' : 'pryem'
-        (opts[:logger] || ::Logger.new(STDERR)).info("[pry-remote-em] listening for connections on #{scheme}://#{host}:#{port}/")
-        "#{scheme}://#{host}:#{port}/"
-      end # run(obj, host = DEFHOST, port = DEFPORT)
+        url    = "#{opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}/"
+        (opts[:logger] || ::Logger.new(STDERR)).info("[pry-remote-em] listening for connections on #{url}")
+        Broker.run(opts[:broker_host] || DEF_BROKERHOST, opts[:broker_port] || DEF_BROKERPORT)
+        Broker.register(url, Pry.view_clip(obj.send(:eval, 'self')))
+        url
+      end
 
       # The list of pry-remote-em connections for a given object, or the list of all pry-remote-em
       # connections for this process.
@@ -95,6 +98,7 @@ module PryRemoteEm
 
     def initialize(obj, opts = {:tls => false})
       @obj              = obj
+      @prompt           = Pry.view_clip(obj.send(:eval, 'self'))
       @opts             = opts
       @allow_shell_cmds = opts[:allow_shell_cmds]
       @log              = opts[:logger] || ::Logger.new(STDERR)
@@ -128,12 +132,18 @@ module PryRemoteEm
       end
     end
 
+    def url
+      port, host = Socket.unpack_sockaddr_in(get_sockname)
+      "#{@opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}/"
+    end
+
     def post_init
       @lines = []
       Pry.config.pager, @old_pager = false, Pry.config.pager
       @auth_required  = @auth
       port, ip        = Socket.unpack_sockaddr_in(get_peername)
       @log.info("[pry-remote-em] received client connection from #{ip}:#{port}")
+      # TODO include first level prompt in banner
       send_banner("PryRemoteEm #{VERSION} #{@opts[:tls] ? 'pryems' : 'pryem'}")
       @opts[:tls] ? start_tls : (@auth_required && send_auth(false))
       PryRemoteEm::Server.register(@obj, self)
