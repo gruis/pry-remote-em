@@ -10,9 +10,11 @@ require 'socket'
 require "fiber"
 
 module PryRemoteEm
-  DEFHOST   = 'localhost'
-  DEFPORT   = 6462
-  NEGOTIMER = 15
+  DEFHOST         = 'localhost'
+  DEFPORT         = 6462
+  DEF_BROKERPORT  = DEFPORT - 1
+  DEF_BROKERHOST  = 'localhost'
+  NEGOTIMER       = 15
 end
 
 

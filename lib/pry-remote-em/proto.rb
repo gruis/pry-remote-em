@@ -75,6 +75,16 @@ module PryRemoteEm
         receive_shell_data(j['sd'])
       elsif j['ssc']
         receive_shell_sig(:term)
+      elsif j['hb']
+        receive_heartbeat(j['hb'])
+      elsif j['rs']
+        receive_register_server(*Array(j['rs']))
+      elsif j['urs']
+        receive_unregister_server(j['urs'])
+      elsif j.include?('sl')
+        j['sl'] ?  receive_server_list(j['sl']) : receive_server_list
+      elsif j['tls']
+        receive_start_tls
       else
         receive_unknown(j)
       end
@@ -94,6 +104,12 @@ module PryRemoteEm
     def receive_shell_sig(sym); end
     def receive_shell_data(d); end
     def receive_unknown(j); end
+
+    def receive_start_tls; end
+
+    def receive_register_server(url, name); end
+    def receive_unregister_server(url); end
+    def receive_server_list(list = nil); end
 
     def send_banner(g)
       send_json({:g => g})
@@ -123,5 +139,21 @@ module PryRemoteEm
       send_json(l)
     end
 
+    def send_start_tls
+      send_json({:tls => true})
+    end
+
+    def send_register_server(url, name)
+      send_json({:rs => [url, name]})
+    end
+    def send_unregister_server(url)
+      send_json({:urs => url})
+    end
+    def send_heatbeat(url)
+      send_json({:hb => url})
+    end
+    def send_server_list(list = nil)
+      send_json({:sl => list})
+    end
   end # module::Proto
 end # module::PryRemoteEm
