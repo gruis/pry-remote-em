@@ -69,7 +69,6 @@ module PryRemoteEm
             port += 1
             retry
           end
-          $stderr.puts "tries #{tries}"
           raise "can't bind to #{host}:#{port} - #{e}"
         end
         url    = "#{opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}/"
