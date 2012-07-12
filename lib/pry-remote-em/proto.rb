@@ -83,6 +83,8 @@ module PryRemoteEm
         receive_unregister_server(j['urs'])
       elsif j.include?('sl')
         j['sl'] ?  receive_server_list(j['sl']) : receive_server_list
+      elsif j['tls']
+        receive_start_tls
       else
         receive_unknown(j)
       end
@@ -102,6 +104,8 @@ module PryRemoteEm
     def receive_shell_sig(sym); end
     def receive_shell_data(d); end
     def receive_unknown(j); end
+
+    def receive_start_tls; end
 
     def receive_register_server(url, name); end
     def receive_unregister_server(url); end
@@ -134,6 +138,10 @@ module PryRemoteEm
     end
     def send_raw(l)
       send_json(l)
+    end
+
+    def send_start_tls
+      send_json({:tls => true})
     end
 
     def send_register_server(url, name)

@@ -161,6 +161,8 @@ module PryRemoteEm
     end
 
     def start_tls
+      return if @tls_started
+      @tls_started = true
       Kernel.puts "[pry-remote-em] negotiating TLS"
       super(@opts[:tls].is_a?(Hash) ? @opts[:tls] : {})
     end
@@ -171,6 +173,7 @@ module PryRemoteEm
         tls       = uri.scheme == 'pryems'
         Kernel.puts "\033[35m[pry-remote-em] connection will not be encrypted\033[0m"  if @opts[:tls] && !tls
         @opts[:tls]   = tls
+        @tls_started  = false
         reconnect(uri.host, uri.port)
       else
         @unbound = true

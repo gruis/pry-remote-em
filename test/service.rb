@@ -19,7 +19,7 @@ end
 
 class Foo
   def initialize(auth)
-    binding.remote_pry_em('127.0.0.1', 1337, auth: auth)
+    binding.remote_pry_em('127.0.0.1', 1337, auth: auth, :port_fail => :auto)
   end
 end
 

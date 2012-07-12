@@ -1,4 +1,5 @@
 require 'pry-remote-em'
+require 'pry-remote-em/client/broker'
 
 module PryRemoteEm
   module Broker
@@ -40,29 +41,36 @@ module PryRemoteEm
       end
 
       def register(url, name = 'unknown')
-        if listening?
-          servers[url] = name
-          log.info("[pry-remote-em broker] registered #{url} - #{name.inspect}")
-        else
-          client.send_register_server(url, name)
-        end
-        name
+        client {|c| c.send_register_server(url, name) }
       end
 
       def unregister(server)
-        if listening?
-          servers.delete(url)
-          log.info("[pry-remote-em broker] unregistered #{server}")
-        else
-          client.send_unregister_server(server)
-        end
-        server
+        client {|c| c.send_unregister_server(server) }
       end
 
     private
 
-      def client
-        @client ||= EM.connect( host, port, (Module.new {include(PryRemoteEm::Proto)}) )
+      def client(&blk)
+        raise ArgumentError.new("A block is required") unless block_given?
+        if @client
+          yield @client
+          return
+        end
+
+        if @waiting
+          @waiting << blk
+        else
+          @waiting = []
+          EM.connect(host, port, Client::Broker, @opts) do |client|
+            client.errback { |e| raise(e || "broker client error") }
+            client.callback do
+              @client = client
+              while (w = @waiting.shift)
+                w.call(client)
+              end
+            end
+          end
+        end
       end
     end # class << self
 
@@ -72,7 +80,7 @@ module PryRemoteEm
       Broker.log
     end
 
-    def initialize(opts = {:tls => false})
+    def initialize(opts = {:tls => false}, &blk)
       @opts = opts
     end
 
@@ -80,12 +88,12 @@ module PryRemoteEm
       port, ip = Socket.unpack_sockaddr_in(get_peername)
       log.info("[pry-remote-em broker] received client connection from #{ip}:#{port}")
       send_banner("PryRemoteEm #{VERSION} #{@opts[:tls] ? 'pryems' : 'pryem'}")
-      @opts[:tls] && start_tls
-      send_server_list(Broker.servers)
+      @opts[:tls] ? start_tls : send_server_list(Broker.servers)
     end
 
     def start_tls
       log.debug("[pry-remote-em broker] starting TLS (#{peer_ip}:#{peer_port})")
+      send_start_tls
       super(@opts[:tls].is_a?(Hash) ? @opts[:tls] : {})
     end
 
@@ -105,6 +113,7 @@ module PryRemoteEm
 
     def ssl_handshake_completed
       log.info("[pry-remote-em broker] TLS connection established (#{peer_ip}:#{peer_port})")
+      send_server_list(Broker.servers)
     end
 
     def receive_server_list
@@ -112,11 +121,15 @@ module PryRemoteEm
     end
 
     def receive_register_server(url, name)
-      Broker.register(url, name)
+      url      = URI.parse(url)
+      url.host = peer_ip if url.host == "0.0.0.0"
+      Broker.servers[url] = name
+      log.info("[pry-remote-em broker] registered #{url} - #{name.inspect}")
+      name
     end
 
     def receive_unregister_server(url)
-      Broker.unregister(url, name)
+      Broker.servers.delete(url)
     end
 
     def receive_heartbeat(url)

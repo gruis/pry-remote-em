@@ -47,7 +47,8 @@ module PryRemoteEm
       # @option opts [Proc, Object] :auth require user authentication - see README
       # @option opts [Boolean] :allow_shell_cmds
       def run(obj, host = DEFHOST, port = DEFPORT, opts = {:tls => false})
-        tries = :auto == port ? 100.tap{ port = DEFPORT } : 1
+        tries = [port, opts[:port_fail]].include?(:auto) ? 100 : 1
+        port  = DEFPORT if :auto == port
         # TODO raise a useful exception not RuntimeError
         raise "root permission required for port below 1024 (#{port})" if port < 1024 && Process.euid != 0
         begin
@@ -63,12 +64,13 @@ module PryRemoteEm
           end
         rescue => e
           # EM 1.0.0.beta4's message tells us the port is in use; 0.12.10 just says, 'no acceptor'
-          if (e.message.include?('port is in use') || e.message.include?('no acceptor')) && tries >= 1
+          if (e.message.include?('port is in use') || e.message.include?('no acceptor')) && tries > 1
             tries -= 1
             port += 1
             retry
           end
-          raise e
+          $stderr.puts "tries #{tries}"
+          raise "can't bind to #{host}:#{port} - #{e}"
         end
         url    = "#{opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}/"
         (opts[:logger] || ::Logger.new(STDERR)).info("[pry-remote-em] listening for connections on #{url}")
