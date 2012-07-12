@@ -81,8 +81,9 @@ module PryRemoteEm
       table   = table.join("\n")
       puts table
       while choice.nil?
-        choice = highline.ask("(q) to quit\nconnect to: ")
+        choice = highline.ask("(q) to quit; (r) to refresh\nconnect to: ")
         return close_connection if ['q', 'quit', 'exit'].include?(choice.downcase)
+        return send_server_list if ['r', 'reload', 'refresh'].include?(choice.downcase)
         choice = choice.to_i.to_s == choice ?
           list[choice.to_i - 1] :
           list.find{|(url, name)| url == choice || name == choice }
