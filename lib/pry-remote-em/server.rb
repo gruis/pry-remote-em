@@ -33,6 +33,34 @@ require 'pry-remote-em/server/shell_cmd'
 # Reference:
 # http://www.igvita.com/2010/03/22/untangling-evented-code-with-ruby-fibers/
 module PryRemoteEm
+  class << self
+    # Local PryRemoteEm EM signatures and server name indexed by url. Each
+    # signature can be used with high level EM methods like EM.stop_server or
+    # EM.get_sockname. If a server has been stopped EM.get_sockname will return
+    # nil for that server's signature.
+    def servers
+      @servers ||= {}
+    end
+
+    # Safely stop one or more PryRemoteEm servers and remove them from the list
+    # of servers.
+    # @param [String] id url or name
+    def stop_server(id)
+      if servers[id]
+        EM.stop_server(servers[id][0]) if EM.get_sockname(servers[id][0])
+        Broker.unregister(id)
+        servers.delete(id)
+        return Array(id)
+      end
+      servers.select{ |i, (sig, name)| name == id }.map do |i, (sig, name)|
+        EM.stop_server(sig) if EM.get_sockname(sig)
+        Broker.unregister(i)
+        servers.delete(i)
+        i
+      end
+    end # stop_server(id)
+  end
+
   module Server
     include Proto
 
@@ -52,7 +80,7 @@ module PryRemoteEm
         # TODO raise a useful exception not RuntimeError
         raise "root permission required for port below 1024 (#{port})" if port < 1024 && Process.euid != 0
         begin
-          EM.start_server(host, port, PryRemoteEm::Server, obj, opts) do |pre|
+          server = EM.start_server(host, port, PryRemoteEm::Server, obj, opts) do |pre|
             Fiber.new {
               begin
                 yield pre if block_given?
@@ -72,10 +100,14 @@ module PryRemoteEm
           raise "can't bind to #{host}:#{port} - #{e}"
         end
         url    = "#{opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}/"
+        name   = Pry.view_clip(obj.send(:eval, 'self'))
+        PryRemoteEm.servers[url] = [server, name]
         (opts[:logger] || ::Logger.new(STDERR)).info("[pry-remote-em] listening for connections on #{url}")
         Broker.run(opts[:broker_host] || DEF_BROKERHOST, opts[:broker_port] || DEF_BROKERPORT, opts)
-        Broker.register(url, Pry.view_clip(obj.send(:eval, 'self')))
-        EM::PeriodicTimer.new(15) { Broker.register(url, Pry.view_clip(obj.send(:eval, 'self'))) }
+        Broker.register(url, name)
+        rereg = EM::PeriodicTimer.new(15) do
+          EM.get_sockname(server) ? Broker.register(url, name) : nil #rereg.cancel
+        end
         url
       end
 

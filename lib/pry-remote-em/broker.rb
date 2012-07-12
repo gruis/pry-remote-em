@@ -31,6 +31,12 @@ module PryRemoteEm
         @opts[:tls] = tls
         log.info("[pry-remote-em broker] restarting on #{opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}")
         run(@host, @port, @opts)
+        EM::Timer.new(rand(0.9)) do
+          PryRemoteEm.servers.each do |url, (sig, name)|
+            next unless EM.get_sockname(sig)
+            register(url, name)
+          end
+        end
         @waiting   = nil
         @client    = nil
       end
@@ -112,8 +118,8 @@ module PryRemoteEm
     end
 
     def receive_register_server(url, name)
-      url                 = URI.parse(url)
-      url.host            = peer_ip if url.host == "0.0.0.0"
+      url      = URI.parse(url)
+      url.host = peer_ip if url.host == "0.0.0.0"
       log.info("[pry-remote-em broker] registered #{url} - #{name.inspect}") unless Broker.servers[url] == name
       Broker.servers[url] = name
       Broker.hbeats[url]  = Time.new
@@ -122,6 +128,9 @@ module PryRemoteEm
     end
 
     def receive_unregister_server(url)
+      url      = URI.parse(url)
+      url.host = peer_ip if url.host == "0.0.0.0"
+      log.warn("[pry-remote-em broker] unregister #{url}")
       Broker.servers.delete(url)
     end
 

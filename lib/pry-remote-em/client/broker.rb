@@ -37,9 +37,9 @@ module PryRemoteEm
 
       def unbind
         log.info("[pry-remote-em broker-client] broker connection unbound starting a new one")
-        # Give the existing broker a little time to release the port. Even if the restart
-        # here fails the next time a server tries to register, a new client will be
-        # created; when that fails Broker#restart will be called again.
+        # Give the existing broker a little time to release the port. Even if the
+        # restart here fails the next time a server tries to register, a new client
+        # will be created; when that fails Broker#restart will be called again.
         EM::Timer.new(rand(0.9)) do
           PryRemoteEm::Broker.restart(@opts[:tls])
         end
