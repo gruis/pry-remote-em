@@ -72,7 +72,7 @@ module PryRemoteEm
         end
         url    = "#{opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}/"
         (opts[:logger] || ::Logger.new(STDERR)).info("[pry-remote-em] listening for connections on #{url}")
-        Broker.run(opts[:broker_host] || DEF_BROKERHOST, opts[:broker_port] || DEF_BROKERPORT)
+        Broker.run(opts[:broker_host] || DEF_BROKERHOST, opts[:broker_port] || DEF_BROKERPORT, opts)
         Broker.register(url, Pry.view_clip(obj.send(:eval, 'self')))
         url
       end

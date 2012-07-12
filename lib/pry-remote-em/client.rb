@@ -7,6 +7,7 @@ require 'pry/helpers/base_helpers'
 require "rb-readline" # doesn't provide vi-mode support :(
         # https://github.com/luislavena/rb-readline/issues/21
         # https://github.com/simulacre/rb-readline/commit/0376eb4e9526b3dc1a6512716322efcef409628d
+require 'highline'
 
 module PryRemoteEm
   module Client
@@ -38,6 +39,10 @@ module PryRemoteEm
     end
 
     def post_init
+      Readline.completion_proc = method(:auto_complete)
+    end
+
+    def connection_completed
       if get_peername
         port, ip = Socket.unpack_sockaddr_in(get_peername)
         Kernel.puts "[pry-remote-em] client connected to pryem://#{ip}:#{port}/"
@@ -48,13 +53,38 @@ module PryRemoteEm
       @nego_timer = EM::Timer.new(PryRemoteEm::NEGOTIMER) do
         fail("[pry-remote-em] server didn't finish negotiation within #{PryRemoteEm::NEGOTIMER} seconds; terminating")
       end
-      Readline.completion_proc = method(:auto_complete)
     end
 
     def auto_complete(word)
       @waiting = Fiber.current
       send_completion(word)
       return Fiber.yield
+    end
+
+    def receive_server_list(list)
+      highline    = HighLine.new
+      choice      = nil
+      nm_col_len  = list.values.map(&:length).sort[-1] + 5
+      ur_col_len  = list.keys.map(&:length).sort[-1] + 5
+      header      = sprintf("| %-3s |  %-#{nm_col_len}s |  %-#{ur_col_len}s |", "id", "name", "url")
+      border      = ("-" * header.length)
+      table       = [border, header, border]
+      list        = list.to_a
+      list.each_with_index do |(url, name), idx|
+        table << sprintf("|  %-2d |  %-#{nm_col_len}s |  %-#{ur_col_len}s |", idx + 1, name, url)
+      end
+      table << border
+      table   = table.join("\n")
+      puts table
+      while choice.nil?
+        choice = highline.ask("connect to: ")
+        choice = choice.to_i.to_s == choice ?
+          list[choice.to_i - 1] :
+          list.find{|(url, name)| url == choice || name == choice }
+      end
+      uri, name = URI.parse(choice[0]), choice[1]
+      @reconnect_to = uri
+      close_connection
     end
 
     def receive_prompt(p)
@@ -127,6 +157,7 @@ module PryRemoteEm
 
     def ssl_handshake_completed
       Kernel.puts "[pry-remote-em] TLS connection established"
+      @opts[:tls] = true
     end
 
     def start_tls
@@ -135,11 +166,19 @@ module PryRemoteEm
     end
 
     def unbind
-      @unbound = true
-      Kernel.puts "[pry-remote-em] session terminated"
-      # prior to 1.0.0.b4 error? returns true here even when it's not
-      return succeed if Gem.loaded_specs["eventmachine"].version < Gem::Version.new("1.0.0.beta4")
-      error? ? fail : succeed
+      if (uri = @reconnect_to)
+        @reconnect_to = nil
+        tls       = uri.scheme == 'pryems'
+        Kernel.puts "\033[35m[pry-remote-em] connection will not be encrypted\033[0m"  if @opts[:tls] && !tls
+        @opts[:tls]   = tls
+        reconnect(uri.host, uri.port)
+      else
+        @unbound = true
+        Kernel.puts "[pry-remote-em] session terminated"
+        # prior to 1.0.0.b4 error? returns true here even when it's not
+        return succeed if Gem.loaded_specs["eventmachine"].version < Gem::Version.new("1.0.0.beta4")
+        error? ? fail : succeed
+      end
     end
 
     def readline(prompt)

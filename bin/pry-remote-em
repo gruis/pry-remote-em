@@ -4,10 +4,10 @@ require 'uri'
 require 'highline'
 require 'pry-remote-em/client'
 
-uri = ARGV[0] || "pryem://localhost:#{PryRemoteEm::DEFPORT}"
+uri = ARGV[0] || "pryem://localhost:#{PryRemoteEm::DEF_BROKERPORT}"
 uri = URI.parse(uri)
 unless %w(pryem pryems).include?(uri.scheme)
-  abort "only pryem URIs are currently supported\n usage: pryem(s)://127.0.0.1:#{PryRemoteEm::DEFPORT}" 
+  abort "only pryem URIs are currently supported\n usage: pryem(s)://127.0.0.1:#{PryRemoteEm::DEF_BROKERPORT}" 
 end
 
 tried = 0

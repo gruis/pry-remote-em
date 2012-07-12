@@ -81,6 +81,8 @@ module PryRemoteEm
         receive_register_server(*Array(j['rs']))
       elsif j['urs']
         receive_unregister_server(j['urs'])
+      elsif j.include?('sl')
+        j['sl'] ?  receive_server_list(j['sl']) : receive_server_list
       else
         receive_unknown(j)
       end
@@ -104,6 +106,7 @@ module PryRemoteEm
     def receive_register_server(url, name); end
     def receive_unregister_server(url); end
     def receive_heartbeat(url); end
+    def receive_server_list(list = nil); end
 
     def send_banner(g)
       send_json({:g => g})
@@ -142,6 +145,8 @@ module PryRemoteEm
     def send_heatbeat(url)
       send_json({:hb => url})
     end
-
+    def send_server_list(list = nil)
+      send_json({:sl => list})
+    end
   end # module::Proto
 end # module::PryRemoteEm
