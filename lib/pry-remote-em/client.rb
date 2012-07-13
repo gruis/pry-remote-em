@@ -1,6 +1,7 @@
 require 'uri'
 require 'pry-remote-em'
 require 'pry-remote-em/client/keyboard'
+require "pry-remote-em/client/generic"
 require 'pry/helpers/base_helpers'
 #require "readline"   # doesn't work with Fiber.yield
         #  - /Users/caleb/src/pry-remote-em/lib/pry-remote-em/client.rb:45:in `yield': fiber called across stack rewinding barrier (FiberError)
@@ -12,7 +13,7 @@ require 'highline'
 module PryRemoteEm
   module Client
     include EM::Deferrable
-    include Proto
+    include Client::Generic
     include Pry::Helpers::BaseHelpers
 
     class << self
@@ -20,7 +21,7 @@ module PryRemoteEm
         EM.connect(host || PryRemoteEm::DEFHOST, port || PryRemoteEm::DEFPORT, PryRemoteEm::Client, opts) do |c|
           c.callback { yield if block_given? }
           c.errback do |e|
-            puts "[pry-remote-em] connection failed\n#{e}"
+            log.info("[pry-remote-em] connection failed\n#{e}")
             yield(e) if block_given?
           end
         end
@@ -42,30 +43,40 @@ module PryRemoteEm
       Readline.completion_proc = method(:auto_complete)
     end
 
-    def connection_completed
-      if get_peername
-        port, ip = Socket.unpack_sockaddr_in(get_peername)
-        Kernel.puts "[pry-remote-em] client connected to pryem://#{ip}:#{port}/"
+    def ssl_handshake_completed
+      log.info("[pry-remote-em] TLS connection established")
+      @opts[:tls] = true
+    end
+
+    def unbind
+      if (uri = @reconnect_to)
+        @reconnect_to = nil
+        tls       = uri.scheme == 'pryems'
+        log.info("\033[35m[pry-remote-em] connection will not be encrypted\033[0m")  if @opts[:tls] && !tls
+        @opts[:tls]   = tls
+        @tls_started  = false
+        reconnect(uri.host, uri.port)
       else
-        # TODO use the args used to create this connection
-        Kernel.puts "[pry-remote-em] client connected"
-      end
-      @nego_timer = EM::Timer.new(PryRemoteEm::NEGOTIMER) do
-        fail("[pry-remote-em] server didn't finish negotiation within #{PryRemoteEm::NEGOTIMER} seconds; terminating")
+        @unbound = true
+        log.info("[pry-remote-em] session terminated")
+        # prior to 1.0.0.b4 error? returns true here even when it's not
+        return succeed if Gem.loaded_specs["eventmachine"].version < Gem::Version.new("1.0.0.beta4")
+        error? ? fail : succeed
       end
     end
 
-    def auto_complete(word)
-      @waiting = Fiber.current
-      send_completion(word)
-      return Fiber.yield
+    def receive_banner(name, version, scheme)
+      # Client::Generic#receive_banner
+      if super(name, version, scheme)
+        start_tls if @opts[:tls]
+      end
     end
 
     def receive_server_list(list)
       highline    = HighLine.new
       choice      = nil
       if list.empty?
-        Kernel.puts "\033[33m[pry-remote-em] no servers are registered with the broker\033[0m"
+        log.info("\033[33m[pry-remote-em] no servers are registered with the broker\033[0m")
         Process.exit
       end
       nm_col_len  = list.values.map(&:length).sort[-1] + 5
@@ -79,7 +90,7 @@ module PryRemoteEm
       end
       table << border
       table   = table.join("\n")
-      puts table
+      Kernel.puts table
       while choice.nil?
         choice = highline.ask("(q) to quit; (r) to refresh\nconnect to: ")
         return close_connection if ['q', 'quit', 'exit'].include?(choice.downcase)
@@ -95,23 +106,6 @@ module PryRemoteEm
 
     def receive_prompt(p)
       readline(p)
-    end
-
-    def receive_banner(name, version, scheme)
-      Kernel.puts "[pry-remote-em] remote is #{name} #{version} #{scheme}"
-      # TODO parse version and compare against a Gem style matcher
-      # https://github.com/simulacre/pry-remote-em/issues/21
-      return fail("[pry-remote-em] incompatible version #{version}") if version != PryRemoteEm::VERSION
-      if scheme.nil? || scheme != (reqscheme = @opts[:tls] ? 'pryems' : 'pryem')
-        if scheme == 'pryems' && defined?(::OpenSSL)
-          @opts[:tls] = true
-        else
-          return fail("[pry-remote-em] server doesn't support required scheme #{reqscheme.dump}")
-        end # scheme == 'pryems' && defined?(::OpenSSL)
-      end
-      @nego_timer.cancel
-      @negotiated = true
-      start_tls if @opts[:tls]
     end
 
     def receive_auth(a)
@@ -153,6 +147,12 @@ module PryRemoteEm
       warn "[pry-remote-em] received unexpected data: #{j.inspect}"
     end
 
+    def auto_complete(word)
+      @waiting = Fiber.current
+      send_completion(word)
+      return Fiber.yield
+    end
+
     def authenticate
       return fail("[pry-remote-em] authentication required") unless @auth
       return fail("[pry-remote-em] can't authenticate before negotiation complete") unless @negotiated
@@ -160,35 +160,6 @@ module PryRemoteEm
       return fail("[pry-remote-em] expected #{@auth} to return a user and password") unless user && pass
       send_auth([user, pass])
     end # authenticate
-
-    def ssl_handshake_completed
-      Kernel.puts "[pry-remote-em] TLS connection established"
-      @opts[:tls] = true
-    end
-
-    def start_tls
-      return if @tls_started
-      @tls_started = true
-      Kernel.puts "[pry-remote-em] negotiating TLS"
-      super(@opts[:tls].is_a?(Hash) ? @opts[:tls] : {})
-    end
-
-    def unbind
-      if (uri = @reconnect_to)
-        @reconnect_to = nil
-        tls       = uri.scheme == 'pryems'
-        Kernel.puts "\033[35m[pry-remote-em] connection will not be encrypted\033[0m"  if @opts[:tls] && !tls
-        @opts[:tls]   = tls
-        @tls_started  = false
-        reconnect(uri.host, uri.port)
-      else
-        @unbound = true
-        Kernel.puts "[pry-remote-em] session terminated"
-        # prior to 1.0.0.b4 error? returns true here even when it's not
-        return succeed if Gem.loaded_specs["eventmachine"].version < Gem::Version.new("1.0.0.beta4")
-        error? ? fail : succeed
-      end
-    end
 
     def readline(prompt)
       if @negotiated && !@unbound
