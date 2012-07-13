@@ -46,8 +46,12 @@ module PryRemoteEm
 
       def receive_banner(name, version, scheme)
         log.info("[pry-remote-em] remote is #{name} #{version} #{scheme}")
-        if version != PryRemoteEm::VERSION
-          fail("[pry-remote-em] incompatible version #{version}")
+        client_ver = Gem::Version.new(PryRemoteEm::VERSION)
+        server_req = Gem::Requirement.new("~>#{version}")
+        server_ver = Gem::Version.new(version)
+        client_req = Gem::Requirement.new("~>#{PryRemoteEm::VERSION}")
+        unless server_req.satisfied_by?(client_ver) || client_req.satisfied_by?(server_ver)
+          fail("[pry-remote-em] incompatible version #{PryRemoteEm::VERSION}")
           return false
         end
         if scheme.nil? || scheme != (reqscheme = opts[:tls] ? 'pryems' : 'pryem')
