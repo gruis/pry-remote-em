@@ -1,4 +1,5 @@
 0.7.0
+- termios is no longer a hard requirement: shell commands will be disabled without it
 - adds PryRemoteEm.servers and PryRemoteEm.stop_server
 - broker can proxy requests to local or remote servers that have registered with it
 - all servers will attempt to register with a broker; client will retrieve list of servers from the broker and present a menu to the user by default

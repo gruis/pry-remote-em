@@ -1,6 +1,10 @@
 require 'uri'
 require 'pry-remote-em'
-require 'pry-remote-em/client/keyboard'
+begin
+  require 'pry-remote-em/client/keyboard'
+rescue LoadError => e
+  warn "[pry-remote-em] unable to load keyboard depenencies (termios); interactive shell commands disabled"
+end
 require "pry-remote-em/client/generic"
 require 'pry/helpers/base_helpers'
 #require "readline"   # doesn't work with Fiber.yield
@@ -135,10 +139,6 @@ module PryRemoteEm
       [choice, proxy]
     end
 
-    def receive_prompt(p)
-      readline(p)
-    end
-
     def receive_auth(a)
       return fail a if a.is_a?(String)
       return authenticate if a == false
@@ -164,11 +164,6 @@ module PryRemoteEm
       end
     end
 
-    def receive_completion(c)
-      @waiting, f = nil, @waiting
-      f.resume(c) if f
-    end
-
     def receive_raw(r)
       # Pry::Helpers::BaseHelpers
       stagger_output(r, $stdout)
@@ -176,12 +171,6 @@ module PryRemoteEm
 
     def receive_unknown(j)
       warn "[pry-remote-em] received unexpected data: #{j.inspect}"
-    end
-
-    def auto_complete(word)
-      @waiting = Fiber.current
-      send_completion(word)
-      return Fiber.yield
     end
 
     def authenticate
@@ -192,6 +181,21 @@ module PryRemoteEm
       send_auth([user, pass])
     end # authenticate
 
+    def auto_complete(word)
+      @waiting = Fiber.current
+      send_completion(word)
+      return Fiber.yield
+    end
+
+    def receive_completion(c)
+      @waiting, f = nil, @waiting
+      f.resume(c) if f
+    end
+
+    def receive_prompt(p)
+      readline(p)
+    end
+
     def readline(prompt)
       if @negotiated && !@unbound
         Fiber.new {
@@ -201,11 +205,16 @@ module PryRemoteEm
           elsif '!' == l[0]
             send_msg(l[1..-1])
           elsif '.' == l[0]
-            send_shell_cmd(l[1..-1])
-            if Gem.loaded_specs["eventmachine"].version < Gem::Version.new("1.0.0.beta4")
-              Kernel.puts "\033[1minteractive shell commands are not well supported when running on EventMachine prior 1.0.0.beta4\033[0m"
+            if !Client.const_defined?(:Keyboard)
+              Kernel.puts "\033[31minteractive shell commands are not supported without termios\033[0m"
+              readline(prompt)
             else
-              @keyboard = EM.open_keyboard(Keyboard, self)
+              send_shell_cmd(l[1..-1])
+              if Gem.loaded_specs["eventmachine"].version < Gem::Version.new("1.0.0.beta4")
+                Kernel.puts "\033[1minteractive shell commands are not well supported when running on EventMachine prior to 1.0.0.beta4\033[0m"
+              else
+                @keyboard = EM.open_keyboard(Keyboard, self)
+              end
             end
           elsif 'reset' == l.strip
             # TODO work with 'bundle exec pry-remote-em ...'
