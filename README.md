@@ -38,7 +38,7 @@ program to connect itself to it:
 
 You can then connect to the pry session using ``pry-remote-em``:
 
-    $ pry-remote-em
+    $ pry-remote-em pryem://127.0.0.1:6462/
     [pry-remote-em] client connected to pryem://127.0.0.1:6462/
     [pry-remote-em] remote is PryRemoteEm 0.1.0
     [1] pry(#<Foo>)> stat
@@ -69,7 +69,7 @@ You can then connect to the pry session using ``pry-remote-em``:
     [7] pry(#<Foo>)> exit
     [pry-remote-em] session terminated
 
-    $ pry-remote-em
+    $ pry-remote-em pryem://127.0.0.1:6462/
     [pry-remote-em] client connected to pryem://127.0.0.1:6462/
     [pry-remote-em] remote is PryRemoteEm 0.1.0
     [1] pry(#<Foo>)> x
@@ -110,7 +110,8 @@ EM.run {
     [pry-remote-em] listening for connections on pryem://localhost:6466/
 
 ```shell
-$ pry-remote-em
+
+$ pry-remote-em pryem://127.0.0.1:6462/
 [pry-remote-em] client connected to pryem://127.0.0.1:6462/
 [pry-remote-em] remote is PryRemoteEm 0.4.0 pryem
 [1] pry("pretty_print")> 
@@ -135,6 +136,88 @@ $ pry-remote-em  pryem://127.0.0.1:6466/
 [pry-remote-em] remote is PryRemoteEm 0.4.0 pryem
 [1] pry(#<RubyVM::InstructionSequence>)> 
 ```
+
+## Server Broker
+
+When more than one server is running on a given host each server and
+started with :auto it can be time consuming to manually figure out which
+port each server is running on. The Broker which listens on port 6461
+keeps track of which server is running on which port. 
+
+By default the pry-remote-em cli utility will connect to the broker and 
+retrieve a list of known servers. You can then select one to connect to
+by its id, name or url. You can also choose to proxy your connection
+through the broker to the selected server.
+
+```shell
+
+$ bin/pry-remote-em
+[pry-remote-em] client connected to pryem://127.0.0.1:6461/
+[pry-remote-em] remote is PryRemoteEm 0.7.0 pryem
+-----------------------------------------------------------------------------
+| id  |  name                              |  url                           |
+-----------------------------------------------------------------------------
+|  1  |  #<#<Class:0x007f924b9bbee8>>      |  pryem://127.0.0.1:6462/       |
+|  2  |  #<Foo>                            |  pryem://127.0.0.1:1337/       |
+|  3  |  #<#<Class:0x007f924b9bbee8>>      |  pryems://127.0.0.1:6463/      |
+|  4  |  #<#<Class:0x007f924b9bbee8>>      |  pryems://127.0.0.1:6464/      |
+|  5  |  #<#<Class:0x007f924b9bbee8>>      |  pryems://127.0.0.1:6465/      |
+|  6  |  #<#<Class:0x007f924b9bbee8>>      |  pryems://127.0.0.1:6466/      |
+|  7  |  #<#<Class:0x007f924b9bbee8>>      |  pryems://127.0.0.1:6467/      |
+|  8  |  #<#<Class:0x007f924b9bbee8>>      |  pryem://127.0.0.1:6468/       |
+|  9  |  #<#<Class:0x007f924b9bbee8>>      |  pryem://127.0.0.1:6469/       |
+-----------------------------------------------------------------------------
+(q) to quit; (r) to refresh (p) to proxy
+connect to: 3
+[pry-remote-em] client connected to pryem://127.0.0.1:6463/
+[pry-remote-em] remote is PryRemoteEm 0.7.0 pryems
+[pry-remote-em] negotiating TLS
+[pry-remote-em] TLS connection established
+[1] pry(#<#<Class:0x007f924b9bbee8>>)>
+```
+
+By default the Broker will listen on 127.0.0.1:6461. To change the ip
+address that the Broker binds to specify it in a PRYEMBROKER environment
+variable, or in :broker_host option passed to #remote_pry_em.
+
+```shell
+
+$ PRYEMBROKER=0.0.0.0 be ./test/service.rb  
+I, [2012-07-13T21:10:00.936993 #88528]  INFO -- : [pry-remote-em] listening for connections on pryem://0.0.0.0:6462/
+I, [2012-07-13T21:10:00.937132 #88528]  INFO -- : [pry-remote-em broker] listening on pryem://0.0.0.0:6461
+I, [2012-07-13T21:10:00.937264 #88528]  INFO -- : [pry-remote-em] listening for connections on pryem://0.0.0.0:1337/
+I, [2012-07-13T21:10:00.937533 #88528]  INFO -- : [pry-remote-em] listening for connections on pryems://0.0.0.0:6463/
+I, [2012-07-13T21:10:00.937804 #88528]  INFO -- : [pry-remote-em] listening for connections on pryems://0.0.0.0:6464/
+I, [2012-07-13T21:10:00.938126 #88528]  INFO -- : [pry-remote-em] listening for connections on pryems://0.0.0.0:6465/
+I, [2012-07-13T21:10:00.938471 #88528]  INFO -- : [pry-remote-em] listening for connections on pryems://0.0.0.0:6466/
+I, [2012-07-13T21:10:00.938835 #88528]  INFO -- : [pry-remote-em] listening for connections on pryems://0.0.0.0:6467/
+I, [2012-07-13T21:10:00.939230 #88528]  INFO -- : [pry-remote-em] listening for connections on pryem://0.0.0.0:6468/
+I, [2012-07-13T21:10:00.939640 #88528]  INFO -- : [pry-remote-em] listening for connections on pryem://0.0.0.0:6469/
+I, [2012-07-13T21:10:01.031576 #88528]  INFO -- : [pry-remote-em broker] received client connection from 127.0.0.1:62288
+I, [2012-07-13T21:10:01.031931 #88528]  INFO -- : [pry-remote-em] client connected to pryem://127.0.0.1:6461/
+I, [2012-07-13T21:10:01.032120 #88528]  INFO -- : [pry-remote-em] remote is PryRemoteEm 0.7.0 pryem
+I, [2012-07-13T21:10:01.032890 #88528]  INFO -- : [pry-remote-em broker] registered pryem://127.0.0.1:6462/ - "#<#<Class:0x007f924b9bbee8>>" 
+I, [2012-07-13T21:10:01.125123 #88528]  INFO -- : [pry-remote-em broker] registered pryem://127.0.0.1:6469/ - "#<#<Class:0x007f924b9bbee8>>" 
+I, [2012-07-13T21:10:01.125487 #88528]  INFO -- : [pry-remote-em broker] registered pryems://127.0.0.1:6467/ - "#<#<Class:0x007f924b9bbee8>>"
+I, [2012-07-13T21:10:01.490729 #88528]  INFO -- : [pry-remote-em broker] registered pryems://127.0.0.1:6464/ - "#<#<Class:0x007f924b9bbee8>>"
+I, [2012-07-13T21:10:01.583015 #88528]  INFO -- : [pry-remote-em broker] registered pryem://127.0.0.1:1337/ - "#<Foo>"                       
+I, [2012-07-13T21:10:01.674842 #88528]  INFO -- : [pry-remote-em broker] registered pryems://127.0.0.1:6466/ - "#<#<Class:0x007f924b9bbee8>>"
+I, [2012-07-13T21:10:01.766813 #88528]  INFO -- : [pry-remote-em broker] registered pryem://127.0.0.1:6468/ - "#<#<Class:0x007f924b9bbee8>>" 
+I, [2012-07-13T21:10:01.858423 #88528]  INFO -- : [pry-remote-em broker] registered pryems://127.0.0.1:6465/ - "#<#<Class:0x007f924b9bbee8>>"
+```
+
+It is possible to have a pry-remote-em server register with a Broker
+running on a different host. Just specify the Brokers address in the
+PRYEMBROKER environment variable or the :broker_host option passed to #remote_pry_em.
+
+To connect to a broker running on a seperate host with the cli client
+just specify it on the command line ``bin/pry-remote-em preym://10.0.0.2:6461/``.
+You can then proxy your client connections to remote servers through
+that Broker.
+
+The Broker will not run in TLS mode, but it can proxy connections to a
+TLS enabled server.
+
 
 ## TLS Encryption
   
@@ -369,9 +452,7 @@ E, [2012-02-11T19:23:40.770380 #36471] ERROR -- : refused to execute shell comma
 
 # Missing Features
 
-  - AutoDiscovery/Broker [ticket](https://github.com/simulacre/pry-remote-em/issues/11)
   - HTTP Transport [ticket](https://github.com/simulacre/pry-remote-em/issues/12)
-  - Vi mode editing - RbReadline doesn't support vi edit mode. I'm looking into contributing it. PryRemoteEm uses rb-readline because the STLIB version doesn't play nice with Fibers.
   - Ssh key based authentication
 
 

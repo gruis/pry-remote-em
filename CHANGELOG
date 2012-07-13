@@ -1,6 +1,6 @@
 0.7.0
 - fixes #21 version matching between client and server allow differences in patch levels
-- fixes #30 client reports own version when incompatible with server
+- fixes #31 client reports own version when incompatible with server
 - client supports vi mode: rb-readline replaced by readline
 - fixes #31 termios is no longer a hard requirement: shell commands will be disabled without it
 - adds PryRemoteEm.servers and PryRemoteEm.stop_server
