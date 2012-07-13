@@ -1,5 +1,6 @@
 require 'pry-remote-em'
 require 'pry-remote-em/client/broker'
+require 'pry-remote-em/client/proxy'
 
 module PryRemoteEm
   module Broker
@@ -7,11 +8,16 @@ module PryRemoteEm
       attr_reader :listening, :host, :port
       alias :listening? :listening
 
-      def run(host = DEF_BROKERHOST, port = DEF_BROKERPORT, opts = {:tls => false})
+      def run(host = ENV['PRYEMBROKER'] || DEF_BROKERHOST, port = ENV['PRYEMBROKERPORT'] || DEF_BROKERPORT, opts = {:tls => false})
         raise "root permission required for port below 1024 (#{port})" if port < 1024 && Process.euid != 0
-        @host = host
-        @port = port
-        @opts = opts
+        @host      = host
+        @port      = port
+        # Brokers cannot use SSL directly. If they do then when a proxy request to an SSL server is received
+        # the client and server will not be able to negotiate a SSL session. The proxied traffic can be SSL
+        # encrypted, but the SSL session will be between the client and the server.
+        opts       = opts.dup
+        opts[:tls] = false
+        @opts      = opts
         begin
           EM.start_server(host, port, PryRemoteEm::Broker, opts) do |broker|
           end
@@ -27,9 +33,8 @@ module PryRemoteEm
         end
       end
 
-      def restart(tls = (@opts && @opts[:tls]))
-        @opts[:tls] = tls
-        log.info("[pry-remote-em broker] restarting on #{opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}")
+      def restart
+        log.info("[pry-remote-em broker] restarting on pryem://#{host}:#{port}")
         run(@host, @port, @opts)
         EM::Timer.new(rand(0.9)) do
           PryRemoteEm.servers.each do |url, (sig, name)|
@@ -119,7 +124,7 @@ module PryRemoteEm
 
     def receive_register_server(url, name)
       url      = URI.parse(url)
-      url.host = peer_ip if url.host == "0.0.0.0"
+      url.host = peer_ip if ['0.0.0.0', 'localhost', '127.0.0.1'].include?(url.host)
       log.info("[pry-remote-em broker] registered #{url} - #{name.inspect}") unless Broker.servers[url] == name
       Broker.servers[url] = name
       Broker.hbeats[url]  = Time.new
@@ -129,9 +134,15 @@ module PryRemoteEm
 
     def receive_unregister_server(url)
       url      = URI.parse(url)
-      url.host = peer_ip if url.host == "0.0.0.0"
+      url.host = peer_ip if ['0.0.0.0', 'localhost', '127.0.0.1'].include?(url.host)
       log.warn("[pry-remote-em broker] unregister #{url}")
       Broker.servers.delete(url)
+    end
+
+    def receive_proxy_connection(url)
+      log.info("[pry-remote-em broker] proxying to #{url}")
+      url = URI.parse(url)
+      EM.connect(url.host, url.port, Client::Proxy, self)
     end
 
     def initialize(opts = {:tls => false}, &blk)

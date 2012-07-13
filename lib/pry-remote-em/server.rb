@@ -103,8 +103,8 @@ module PryRemoteEm
         name   = Pry.view_clip(obj.send(:eval, 'self'))
         PryRemoteEm.servers[url] = [server, name]
         (opts[:logger] || ::Logger.new(STDERR)).info("[pry-remote-em] listening for connections on #{url}")
-        Broker.run(opts[:broker_host] || DEF_BROKERHOST, opts[:broker_port] || DEF_BROKERPORT, opts)
-        Broker.register(url, name)
+        Broker.run(opts[:broker_host] || ENV['PRYEMBROKER'] || DEF_BROKERHOST, opts[:broker_port] || ENV['PRYEMBROKERPORT'] || DEF_BROKERPORT, opts)
+        EM::Timer.new(rand(0.9)) { Broker.register(url, name) }
         rereg = EM::PeriodicTimer.new(15) do
           EM.get_sockname(server) ? Broker.register(url, name) : nil #rereg.cancel
         end
@@ -179,6 +179,7 @@ module PryRemoteEm
       @log.info("[pry-remote-em] received client connection from #{ip}:#{port}")
       # TODO include first level prompt in banner
       send_banner("PryRemoteEm #{VERSION} #{@opts[:tls] ? 'pryems' : 'pryem'}")
+      @log.info("#{url} PryRemoteEm #{VERSION} #{@opts[:tls] ? 'pryems' : 'pryem'}")
       @opts[:tls] ? start_tls : (@auth_required && send_auth(false))
       PryRemoteEm::Server.register(@obj, self)
     end

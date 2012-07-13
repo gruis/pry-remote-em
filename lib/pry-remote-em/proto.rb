@@ -85,6 +85,8 @@ module PryRemoteEm
         j['sl'] ?  receive_server_list(j['sl']) : receive_server_list
       elsif j['tls']
         receive_start_tls
+      elsif j['pc']
+        receive_proxy_connection(j['pc'])
       else
         receive_unknown(j)
       end
@@ -110,6 +112,8 @@ module PryRemoteEm
     def receive_register_server(url, name); end
     def receive_unregister_server(url); end
     def receive_server_list(list = nil); end
+
+    def receive_proxy_connection(url); end
 
     def send_banner(g)
       send_json({:g => g})
@@ -154,6 +158,10 @@ module PryRemoteEm
     end
     def send_server_list(list = nil)
       send_json({:sl => list})
+    end
+
+    def send_proxy_connection(url)
+      send_json({:pc => url})
     end
   end # module::Proto
 end # module::PryRemoteEm

@@ -19,7 +19,7 @@ end
 
 class Foo
   def initialize(auth)
-    binding.remote_pry_em('127.0.0.1', 1337, auth: auth, :port_fail => :auto)
+    binding.remote_pry_em('0.0.0.0', 1337, auth: auth, :port_fail => :auto)
   end
 end
 
@@ -50,23 +50,23 @@ end
 
 
 EM.run{
-  anon_obj.new.remote_pry_em('localhost', :auto, :tls => true, :target => binding)
+  anon_obj.new.remote_pry_em('0.0.0.0')
   Foo.new(auth_hash)
-  anon_obj.new.remote_pry_em('localhost', :auto, :tls => true, :allow_shell_cmds => true)
+  anon_obj.new.remote_pry_em('0.0.0.0', :auto, :tls => true, :allow_shell_cmds => true)
   anon_obj.new.remote_pry_em('0.0.0.0', :auto, :tls => true)
-  anon_obj.new.remote_pry_em('localhost', :auto, :tls => true, :allow_shell_cmds => true, :auth => auth_hash) do |pry|
+  anon_obj.new.remote_pry_em('0.0.0.0', :auto, :tls => true, :allow_shell_cmds => true, :auth => auth_hash) do |pry|
     auth_logger.call(pry)
   end
-  anon_obj.new.remote_pry_em('localhost', :auto, :tls => true, :auth => auth_anon) do |pry|
+  anon_obj.new.remote_pry_em('0.0.0.0', :auto, :tls => true, :auth => auth_anon) do |pry|
     auth_logger.call(pry)
   end
-  anon_obj.new.remote_pry_em('localhost', :auto, :tls => true, :auth => Authenticator.new(auth_hash)) do |pry|
+  anon_obj.new.remote_pry_em('0.0.0.0', :auto, :tls => true, :auth => Authenticator.new(auth_hash)) do |pry|
     auth_logger.call(pry)
   end
-  anon_obj.new.remote_pry_em('localhost', :auto, :auth => auth_hash) do |pry|
+  anon_obj.new.remote_pry_em('0.0.0.0', :auto, :auth => auth_hash) do |pry|
     auth_logger.call(pry)
   end
-  anon_obj.new.remote_pry_em('localhost', :auto)
+  anon_obj.new.remote_pry_em('0.0.0.0', :auto)
 }
 
 # TODO use rspec

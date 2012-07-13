@@ -3,7 +3,12 @@ require "pry-remote-em/proto"
 module PryRemoteEm
   module Client
     module Generic
+      include EM::Deferrable
       include Proto
+
+      def initialize(opt = {})
+        @opts   = opts
+      end
 
       def opts
         @opts ||= {}
@@ -42,14 +47,14 @@ module PryRemoteEm
       def receive_banner(name, version, scheme)
         log.info("[pry-remote-em] remote is #{name} #{version} #{scheme}")
         if version != PryRemoteEm::VERSION
-          fail("[pry-remote-em broker-client] incompatible version #{version}")
+          fail("[pry-remote-em] incompatible version #{version}")
           return false
         end
         if scheme.nil? || scheme != (reqscheme = opts[:tls] ? 'pryems' : 'pryem')
           if scheme == 'pryems' && defined?(::OpenSSL)
             opts[:tls] = true
           else
-            fail("[pry-remote-em broker-client] server doesn't support required scheme #{reqscheme.dump}")
+            fail("[pry-remote-em] server doesn't support required scheme #{reqscheme.dump}")
             return false
           end
         end

@@ -21,7 +21,7 @@ module PryRemoteEm
         EM.connect(host || PryRemoteEm::DEFHOST, port || PryRemoteEm::DEFPORT, PryRemoteEm::Client, opts) do |c|
           c.callback { yield if block_given? }
           c.errback do |e|
-            log.info("[pry-remote-em] connection failed\n#{e}")
+            Kernel.puts "[pry-remote-em] connection failed\n#{e}"
             yield(e) if block_given?
           end
         end
@@ -73,12 +73,27 @@ module PryRemoteEm
     end
 
     def receive_server_list(list)
-      highline    = HighLine.new
-      choice      = nil
       if list.empty?
         log.info("\033[33m[pry-remote-em] no servers are registered with the broker\033[0m")
         Process.exit
       end
+      choice, proxy  = choose_server(list)
+      return unless choice
+      uri, name      = URI.parse(choice[0]), choice[1]
+      if proxy
+        @opts[:tls]  = uri.scheme == 'pryems'
+        @negotiated  = false
+        @tls_started = false
+        return send_proxy_connection(uri)
+      end
+      @reconnect_to = uri
+      close_connection
+    end
+
+    def choose_server(list)
+      highline    = HighLine.new
+      proxy       = false
+      choice      = nil
       nm_col_len  = list.values.map(&:length).sort[-1] + 5
       ur_col_len  = list.keys.map(&:length).sort[-1] + 5
       header      = sprintf("| %-3s |  %-#{nm_col_len}s |  %-#{ur_col_len}s |", "id", "name", "url")
@@ -92,16 +107,32 @@ module PryRemoteEm
       table   = table.join("\n")
       Kernel.puts table
       while choice.nil?
-        choice = highline.ask("(q) to quit; (r) to refresh\nconnect to: ")
+        if proxy
+          question = "(q) to quit; (r) to refresh (c) to connect\nproxy to: "
+        else
+          question = "(q) to quit; (r) to refresh (p) to proxy\nconnect to: "
+        end
+        choice = highline.ask(question)
         return close_connection if ['q', 'quit', 'exit'].include?(choice.downcase)
-        return send_server_list if ['r', 'reload', 'refresh'].include?(choice.downcase)
+        if ['r', 'reload', 'refresh'].include?(choice.downcase)
+          send_server_list
+          return nil
+        end
+        if ['c', 'connect'].include?(choice.downcase)
+          proxy = false
+          choice = nil
+          next
+        end
+        if ['p', 'proxy'].include?(choice.downcase)
+          proxy = true
+          choice = nil
+          next
+        end
         choice = choice.to_i.to_s == choice ?
           list[choice.to_i - 1] :
           list.find{|(url, name)| url == choice || name == choice }
       end
-      uri, name = URI.parse(choice[0]), choice[1]
-      @reconnect_to = uri
-      close_connection
+      [choice, proxy]
     end
 
     def receive_prompt(p)

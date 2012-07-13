@@ -6,10 +6,6 @@ module PryRemoteEm
       include Client::Generic
       include EM::Deferrable
 
-      def initialize(opts);
-        @opts = opts
-      end
-
       def log
         return opts[:logger] if opts[:logger]
         @log ||= Logger.new(STDERR)
@@ -31,7 +27,7 @@ module PryRemoteEm
         # restart here fails the next time a server tries to register, a new client
         # will be created; when that fails Broker#restart will be called again.
         EM::Timer.new(rand(0.9)) do
-          PryRemoteEm::Broker.restart(@opts[:tls])
+          PryRemoteEm::Broker.restart
         end
       end
 
