@@ -137,7 +137,6 @@ module PryRemoteEm
 
     def initialize(obj, opts = {:tls => false})
       @obj              = obj
-      @prompt           = Pry.view_clip(obj.send(:eval, 'self'))
       @opts             = opts
       @allow_shell_cmds = opts[:allow_shell_cmds]
       @log              = opts[:logger] || ::Logger.new(STDERR)
