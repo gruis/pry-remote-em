@@ -7,7 +7,8 @@ require 'pry-remote-em/version'
 require 'pry-remote-em/proto'
 require 'eventmachine'
 require 'socket'
-require "fiber"
+require 'fiber'
+require 'uri'
 
 module PryRemoteEm
   DEFHOST         = 'localhost'
