@@ -1,4 +1,5 @@
 0.7.0
+- client supports vi mode: rb-readline replaced by readline
 - termios is no longer a hard requirement: shell commands will be disabled without it
 - adds PryRemoteEm.servers and PryRemoteEm.stop_server
 - broker can proxy requests to local or remote servers that have registered with it

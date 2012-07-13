@@ -7,11 +7,7 @@ rescue LoadError => e
 end
 require "pry-remote-em/client/generic"
 require 'pry/helpers/base_helpers'
-#require "readline"   # doesn't work with Fiber.yield
-        #  - /Users/caleb/src/pry-remote-em/lib/pry-remote-em/client.rb:45:in `yield': fiber called across stack rewinding barrier (FiberError)
-require "rb-readline" # doesn't provide vi-mode support :(
-        # https://github.com/luislavena/rb-readline/issues/21
-        # https://github.com/simulacre/rb-readline/commit/0376eb4e9526b3dc1a6512716322efcef409628d
+require "readline"
 require 'highline'
 
 module PryRemoteEm
@@ -182,14 +178,19 @@ module PryRemoteEm
     end # authenticate
 
     def auto_complete(word)
-      @waiting = Fiber.current
-      send_completion(word)
-      return Fiber.yield
+      @waiting = Thread.current
+      EM.next_tick { send_completion(word) }
+      sleep
+      c = Thread.current[:completion]
+      Thread.current[:completion] = nil
+      c
     end
 
     def receive_completion(c)
-      @waiting, f = nil, @waiting
-      f.resume(c) if f
+      return unless @waiting
+      @waiting[:completion] = c
+      @waiting, t = nil, @waiting
+      t.run
     end
 
     def receive_prompt(p)
@@ -198,8 +199,8 @@ module PryRemoteEm
 
     def readline(prompt)
       if @negotiated && !@unbound
-        Fiber.new {
-          l = Readline.readline(prompt, !prompt.nil?)
+        op       = proc { Readline.readline(prompt, !prompt.nil?) }
+        callback = proc do |l|
           if '!!' == l[0..1]
             send_msg_bcast(l[2..-1])
           elsif '!' == l[0]
@@ -224,7 +225,8 @@ module PryRemoteEm
           else
             send_raw(l)
           end # "!!" == l[0..1]
-        }.resume
+        end
+        EM.defer(op, callback)
       end
     end # readline(prompt = @last_prompt)
 
