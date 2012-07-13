@@ -139,7 +139,7 @@ $ pry-remote-em  pryem://127.0.0.1:6466/
 
 ## Server Broker
 
-When more than one server is running on a given host each server and
+When more than one server is running on a given host and each server is
 started with :auto it can be time consuming to manually figure out which
 port each server is running on. The Broker which listens on port 6461
 keeps track of which server is running on which port. 
