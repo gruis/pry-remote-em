@@ -79,7 +79,7 @@ module PryRemoteEm
       end
       choice, proxy  = choose_server(list)
       return unless choice
-      uri, name      = URI.parse(choice[0]), choice[1]
+      uri, name      = choice[0], choice[1]
       if proxy
         @opts[:tls]  = uri.scheme == 'pryems'
         @negotiated  = false
@@ -99,7 +99,8 @@ module PryRemoteEm
       header      = sprintf("| %-3s |  %-#{nm_col_len}s |  %-#{ur_col_len}s |", "id", "name", "url")
       border      = ("-" * header.length)
       table       = [border, header, border]
-      list        = list.to_a
+      list        = list.to_a.map{|url, name| [URI.parse(url), name]}
+      list        = list.sort { |a,b| a[0].host <=> b[0].host }
       list.each_with_index do |(url, name), idx|
         table << sprintf("|  %-2d |  %-#{nm_col_len}s |  %-#{ur_col_len}s |", idx + 1, name, url)
       end

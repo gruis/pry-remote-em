@@ -1,3 +1,7 @@
+0.7.1
+- client sorts server list by host address
+- when registering 0.0.0.0 with a Broker register each interface instead
+
 0.7.0
 - fixes #21 version matching between client and server allow differences in patch levels
 - fixes #31 client reports own version when incompatible with server

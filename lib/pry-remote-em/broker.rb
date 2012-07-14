@@ -1,3 +1,4 @@
+require 'socket'
 require 'pry-remote-em'
 require 'pry-remote-em/client/broker'
 require 'pry-remote-em/client/proxy'
@@ -60,11 +61,21 @@ module PryRemoteEm
       end
 
       def register(url, name = 'unknown')
-        client { |c| c.send_register_server(url, name) }
+        expand_url(url).each do |u|
+          client { |c| c.send_register_server(u, name) }
+        end
       end
 
-      def unregister(server)
-        client {|c| c.send_unregister_server(server) }
+      def unregister(url)
+        expand_url(url).each do |u|
+          client { |c| c.send_unregister_server(u) }
+        end
+      end
+
+      def expand_url(url)
+        return Array(url) if (u = URI.parse(url)).host != '0.0.0.0'
+        Socket.ip_address_list.select { |a| a.ipv4? }
+         .map(&:ip_address).map{|i| u.clone.tap{|mu| mu.host = i } }
       end
 
       def watch_heartbeats(url)
