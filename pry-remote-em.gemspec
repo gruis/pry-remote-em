@@ -13,7 +13,7 @@ Gem::Specification.new do |s|
   s.executables   = ['pry-remote-em']
 
   s.add_dependency 'eventmachine'
-  s.add_dependency 'pry', '~> 0.9.9'
+  s.add_dependency 'pry', '~> 0.9'
   s.add_development_dependency 'ruby-termios', '~> 0.9.6'
   s.add_dependency 'highline'
 end
