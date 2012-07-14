@@ -100,11 +100,7 @@ module PryRemoteEm
           raise "can't bind to #{host}:#{port} - #{e}"
         end
         url    = "#{opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}/"
-        begin
-          name = obj.send(:eval, 'self')
-        rescue
-          name = "#{obj}"
-        end
+        name   = obj.send(:eval, 'self') rescue "#{obj}"
         name   = Pry.view_clip(name)
         PryRemoteEm.servers[url] = [server, name]
         (opts[:logger] || ::Logger.new(STDERR)).info("[pry-remote-em] listening for connections on #{url}")
