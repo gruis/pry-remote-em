@@ -1,4 +1,9 @@
 0.7.1
+- server list can be filtered by host, port, name, or SSL support
+- server list can be sorted by host, port, name, or SSL support
+- cli assumes port 6461 when not specified
+- cli accepts -c and -p options to immediately connect or proxy from the broker to a server matching the name specified on the command line
+- closes #37 loosens pry version requirement
 - client sorts server list by host address
 - when registering 0.0.0.0 with a Broker register each interface instead
 

@@ -3,12 +3,49 @@
 require 'uri'
 require 'highline'
 require 'pry-remote-em/client'
+require 'optparse'
+
+options = {}
+OptionParser.new do |opts|
+  opts.on("-c", "--connect NAME", "connect to the first pry remote em server matching NAME") do |name|
+    options[:connect] = name
+  end 
+  opts.on("-p", "--proxy NAME", "proxy through the broker to the first pry remote em server matching NAME") do |name|
+    options[:proxy] = name
+  end 
+
+  opts.on("--fh HOST", "--filter-host HOST", "only show servers listening at the given address (regexp)") do |host|
+    if host =~ /^pryems?:\/\//
+      ARGV.push(host)
+    else  
+      options[:filter_host] = Regexp.new(host)
+    end 
+  end 
+  opts.on("--fn NAME", "--filter-name NAME", "only show servers with a matching name (regexp)") do |name|
+    if name =~ /^pryems?:\/\//
+      ARGV.push(name)
+    else  
+      options[:filter_name] = Regexp.new(name)
+    end 
+  end
+  opts.on("--[no-]fs", "--[no-]filter-ssl", "show only servers that support ssl") do |ssl|
+    options[:filter_ssl] = ssl
+  end
+
+  opts.on('--sh', '--sort-host', 'sort by host') { options[:sort] = :host }
+  opts.on('--sn', '--sort-name', 'sort by server name') { |name| options[:sort] = :name }
+  opts.on('--sp', '--sort-port', 'sort by port') { options[:sort] = :port }
+  opts.on('--ss', '--sort-ssl', 'sort by ssl support') { options[:sort] = :ssl }
+
+  opts.parse!(ARGV)
+end 
 
 uri = ARGV[0] || "pryem://localhost:#{PryRemoteEm::DEF_BROKERPORT}"
 uri = URI.parse(uri)
 unless %w(pryem pryems).include?(uri.scheme)
-  abort "only pryem URIs are currently supported\n usage: pryem(s)://127.0.0.1:#{PryRemoteEm::DEF_BROKERPORT}" 
+  abort "only pryem URIs are currently supported\n usage: pryem[s]://127.0.0.1:#{PryRemoteEm::DEF_BROKERPORT}" 
 end
+uri.port = PryRemoteEm::DEF_BROKERPORT unless uri.port
 
 tried = 0
 auth_proc = proc do
@@ -25,5 +62,5 @@ auth_proc = proc do
 end
 
 EM.run do
-  PryRemoteEm::Client.start(uri.host, uri.port, :auth=>auth_proc, :tls=>uri.scheme=='pryems') { |e| EM.stop }
+  PryRemoteEm::Client.start(uri.host, uri.port, options.merge(:auth=>auth_proc, :tls=>uri.scheme=='pryems')) { |e| EM.stop }
 end

@@ -28,6 +28,8 @@ module PryRemoteEm
       end
     end # class << self
 
+    attr_reader :opts
+
     def initialize(opts = {})
       @opts = opts
       if (a = opts[:auth])
@@ -96,11 +98,12 @@ module PryRemoteEm
       choice      = nil
       nm_col_len  = list.values.map(&:length).sort[-1] + 5
       ur_col_len  = list.keys.map(&:length).sort[-1] + 5
-      header      = sprintf("| %-3s |  %-#{nm_col_len}s |  %-#{ur_col_len}s |", "id", "name", "url")
+      header      = sprintf("| %-3s |  %-#{nm_col_len}s |  %-#{ur_col_len}s |", "", "name", "url")
       border      = ("-" * header.length)
       table       = [border, header, border]
       list        = list.to_a.map{|url, name| [URI.parse(url), name]}
-      list        = list.sort { |a,b| a[0].host <=> b[0].host }
+      list        = filter_server_list(list)
+      list        = sort_server_list(list)
       list.each_with_index do |(url, name), idx|
         table << sprintf("|  %-2d |  %-#{nm_col_len}s |  %-#{ur_col_len}s |", idx + 1, name, url)
       end
@@ -113,7 +116,13 @@ module PryRemoteEm
         else
           question = "(q) to quit; (r) to refresh (p) to proxy\nconnect to: "
         end
-        choice = highline.ask(question)
+        if (choice = opts.delete(:proxy))
+          proxy = true
+        else
+          choice = opts.delete(:connect) || highline.ask(question)
+          proxy = false
+        end
+
         return close_connection if ['q', 'quit', 'exit'].include?(choice.downcase)
         if ['r', 'reload', 'refresh'].include?(choice.downcase)
           send_server_list
@@ -129,11 +138,47 @@ module PryRemoteEm
           choice = nil
           next
         end
-        choice = choice.to_i.to_s == choice ?
+        choice = choice.to_i > 0 ?
           list[choice.to_i - 1] :
-          list.find{|(url, name)| url == choice || name == choice }
+          list.find{|(url, name)| url.to_s == choice || name == choice }
+        log.error("\033[31mserver not found\033[0m") unless choice
       end
       [choice, proxy]
+    end
+
+    def sort_server_list(list)
+      type = opts[:sort] || :host
+      case type
+      when :name
+        list.sort { |a,b| a[1] <=> b[1] }
+      when :host
+        list.sort { |a,b| a[0].host <=> b[0].host }
+      when :ssl
+        list.sort { |a,b| b[0].scheme <=> a[0].scheme }
+      when :port
+        list.sort { |a,b| a[0].port <=> b[0].port }
+      else
+        list.sort { |a,b| a[0].host <=> b[0].host }
+      end
+    end
+
+    def filter_server_list(list)
+      if opts[:filter_host]
+        list = list.select { |url, name| url.host =~ opts[:filter_host] }
+      end
+      if opts[:filter_name]
+        list = list.select { |url, name| name =~ opts[:filter_name] }
+      end
+      if opts.include?(:filter_ssl)
+        list = opts[:filter_ssl] ?
+          list.select{|url, name| url.scheme == 'pryems' } :
+          list.select{|url, name| url.scheme == 'pryem' }
+      end
+      if list.empty?
+        log.info("\033[33m[pry-remote-em] no registered servers match the given filter\033[0m")
+        Process.exit
+      end
+      list
     end
 
     def receive_auth(a)
