@@ -32,19 +32,19 @@ module PryRemoteEm
             raise e
           end
         end
+        client { |c| yield self } if block_given?
       end
 
       def restart
         log.info("[pry-remote-em broker] restarting on pryem://#{host}:#{port}")
-        run(@host, @port, @opts)
-        EM::Timer.new(rand(0.9)) do
+        @waiting   = nil
+        @client    = nil
+        run(@host, @port, @opts) do
           PryRemoteEm.servers.each do |url, (sig, name)|
             next unless EM.get_sockname(sig)
             register(url, name)
           end
         end
-        @waiting   = nil
-        @client    = nil
       end
 
       def opts
@@ -113,7 +113,7 @@ module PryRemoteEm
         if @waiting
           @waiting << blk
         else
-          @waiting = []
+          @waiting = [blk]
           EM.connect(host, port, Client::Broker, @opts) do |client|
             client.errback { |e| raise(e || "broker client error") }
             client.callback do

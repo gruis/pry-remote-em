@@ -1,3 +1,6 @@
+0.7.2
+- Broker.run yields to a block when broker connection has been established
+
 0.7.1
 - server list can be filtered by host, port, name, or SSL support
 - server list can be sorted by host, port, name, or SSL support

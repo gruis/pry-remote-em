@@ -104,11 +104,12 @@ module PryRemoteEm
         name   = Pry.view_clip(name)
         PryRemoteEm.servers[url] = [server, name]
         (opts[:logger] || ::Logger.new(STDERR)).info("[pry-remote-em] listening for connections on #{url}")
-        Broker.run(opts[:broker_host] || ENV['PRYEMBROKER'] || DEF_BROKERHOST, opts[:broker_port] || ENV['PRYEMBROKERPORT'] || DEF_BROKERPORT, opts)
-        EM::Timer.new(rand(0.9)) { Broker.register(url, name) }
-        rereg = EM::PeriodicTimer.new(15) do
-          EM.get_sockname(server) ? Broker.register(url, name) : nil #rereg.cancel
-        end
+        Broker.run(opts[:broker_host] || ENV['PRYEMBROKER'] || DEF_BROKERHOST, opts[:broker_port] || ENV['PRYEMBROKERPORT'] || DEF_BROKERPORT, opts) do |broker|
+          broker.register(url, name)
+          rereg = EM::PeriodicTimer.new(15) do
+            EM.get_sockname(server) ? broker.register(url, name) : nil #rereg.cancel
+          end
+        end # broker
         url
       end
 
