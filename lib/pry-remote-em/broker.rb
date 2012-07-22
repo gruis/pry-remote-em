@@ -75,7 +75,8 @@ module PryRemoteEm
       def expand_url(url)
         return Array(url) if (u = URI.parse(url)).host != '0.0.0.0'
         Socket.ip_address_list.select { |a| a.ipv4? }
-         .map(&:ip_address).map{|i| u.clone.tap{|mu| mu.host = i } }
+          .map(&:ip_address)
+          .map{|i| u.clone.tap{|mu| mu.host = i } }
       end
 
       def watch_heartbeats(url)

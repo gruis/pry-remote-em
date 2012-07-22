@@ -31,7 +31,7 @@ anon_obj = Class.new do
     __ENCODING__
   end
   def weather
-    :cloudy
+    :sunny
   end
 end
 

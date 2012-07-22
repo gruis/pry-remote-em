@@ -84,7 +84,10 @@ module PryRemoteEm
             Fiber.new {
               begin
                 yield pre if block_given?
-                Pry.start(obj, :input => pre, :output => pre)
+                shim  = proc { |target, opts, pry|  shim_pry(target, opts, pry, pre) }
+                hooks = {:when_started => shim}
+                hooks = Pry::Hooks.from_hash(hooks) if defined?(Pry::Hooks)
+                Pry.start(obj, :input => pre, :output => pre, :hooks => hooks, :extra_sticky_locals => {:_pryem_ => pre})
               ensure
                 pre.close_connection
               end
@@ -111,6 +114,17 @@ module PryRemoteEm
           end
         end # broker
         url
+      end
+
+      def pry_hooks
+        hooks = {:when_started => method(:shim_pry) }
+        defined?(Pry::Hooks) ? Pry::Hooks.from_hash(hooks) : hooks
+      end
+
+      def shim_pry(target, options, pry, pryem)
+        #$stderr.puts "shim_pry(#{target}, #{options}, #{pry}, #{pryem})"
+        # TODO modify the invoke_editor helper method to look for a _pryem_ local and use
+        # that instead of the normal editor
       end
 
       # The list of pry-remote-em connections for a given object, or the list of all pry-remote-em
