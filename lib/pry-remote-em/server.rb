@@ -3,6 +3,7 @@ require 'logger'
 require 'pry-remote-em'
 require 'pry-remote-em/broker'
 require 'pry-remote-em/server/shell_cmd'
+require 'pry-remote-em/ext/server'
 
 # How it works with Pry
 #
@@ -125,6 +126,7 @@ module PryRemoteEm
         #$stderr.puts "shim_pry(#{target}, #{options}, #{pry}, #{pryem})"
         # TODO modify the invoke_editor helper method to look for a _pryem_ local and use
         # that instead of the normal editor
+        pry._pryem_ = pryem
       end
 
       # The list of pry-remote-em connections for a given object, or the list of all pry-remote-em
@@ -151,6 +153,8 @@ module PryRemoteEm
       @opts             = opts
       @allow_shell_cmds = opts[:allow_shell_cmds]
       @log              = opts[:logger] || ::Logger.new(STDERR)
+      @editing          = {}
+      @asking_confirm   = {}
       # Blocks that will be called on each authentication attempt, prior checking the credentials
       @auth_attempt_cbs = []
       # All authentication attempts that occured before an auth callback was registered
@@ -419,6 +423,33 @@ module PryRemoteEm
 
     def flush
       true
+    end
+
+
+    # Provide editing capabilities
+
+    def invoke_editor(file, line, contents)
+      @editing[file] = Fiber.current
+      send_edit(file, line, contents)
+      return Fiber.yield
+    end
+
+    def receive_edit(file, line, new_contents)
+      if @editing[file] && @editing[file].alive?
+        @editing.delete(file).resume(new_contents)
+      end
+    end
+
+    def update_changed(file, line)
+      @asking_confirm[file] = Fiber.current
+      send_edit_changed(file, line)
+      return Fiber.yield
+    end
+
+    def receive_edit_changed(file, yes_no)
+      if @asking_confirm[file] && @asking_confirm[file].alive?
+        @asking_confirm.delete(file).resume(yes_no)
+      end
     end
   end # module::Server
 end # module::PryRemoteEm

@@ -7,6 +7,8 @@ rescue LoadError => e
 end
 require "pry-remote-em/client/generic"
 require 'pry/helpers/base_helpers'
+require 'pry-remote-em/ext/client'
+
 require "readline"
 require 'highline'
 
@@ -278,11 +280,3 @@ module PryRemoteEm
 
   end # module::Client
 end # module::PryRemoteEm
-
-# Pry::Helpers::BaseHelpers#stagger_output expects Pry.pager to be defined
-class Pry
-  class << self
-    attr_accessor :pager unless respond_to?(:pager)
-  end
-end
-Pry.pager = true
