@@ -5,16 +5,20 @@ begin
 rescue LoadError => e
   warn "[pry-remote-em] unable to load keyboard depenencies (termios); interactive shell commands disabled"
 end
-require "pry-remote-em/client/generic"
-require 'pry/helpers/base_helpers'
 require "readline"
 require 'highline'
+require "pry-remote-em/client/generic"
+require "pry"
+
+Pry.config.editor = Pry.default_editor_for_platform
+Pry.pager         = true
 
 module PryRemoteEm
   module Client
     include EM::Deferrable
     include Client::Generic
     include Pry::Helpers::BaseHelpers
+    include Pry::Helpers::CommandHelpers
 
     class << self
       def start(host = PryRemoteEm::DEFHOST, port = PryRemoteEM::DEFPORT, opts = {:tls => false})
@@ -215,6 +219,36 @@ module PryRemoteEm
       warn "[pry-remote-em] received unexpected data: #{j.inspect}"
     end
 
+    def receive_edit(file, line, contents)
+      $stderr.puts "recived_edit request for #{file}, #{line}"
+      unless Pry.config.editor
+        $stderr.puts "Please export $VISUAL or $EDITOR"
+        return send_edit_failed(file, line, "Pry.config.editor not set")
+      end
+      temp_file do |tmp|
+        tmp.write(contents)
+        tmp.close
+        begin
+          invoke_editor(tmp.path, line, true)
+        rescue => e
+          $stderr.puts "#{e}"
+          return send_edit_failed(file, line, e.to_s)
+        end
+        tmp.open
+        send_edit(file, line, tmp.read)
+      end
+    end
+
+    def receive_edit_changed(file, line, diff = "")
+      if diff.nil? || diff.empty?
+        send_edit_changed(file, HighLine.new.agree("#{file} has changed, overwrite? "))
+      else
+        puts "#{file} has changed. diff:"
+        puts diff
+        send_edit_changed(file, HighLine.new.agree("overwrite? "))
+      end
+    end
+
     def authenticate
       return fail("[pry-remote-em] authentication required") unless @auth
       return fail("[pry-remote-em] can't authenticate before negotiation complete") unless @negotiated
@@ -278,11 +312,3 @@ module PryRemoteEm
 
   end # module::Client
 end # module::PryRemoteEm
-
-# Pry::Helpers::BaseHelpers#stagger_output expects Pry.pager to be defined
-class Pry
-  class << self
-    attr_accessor :pager unless respond_to?(:pager)
-  end
-end
-Pry.pager = true

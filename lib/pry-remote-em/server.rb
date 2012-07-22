@@ -3,6 +3,7 @@ require 'logger'
 require 'pry-remote-em'
 require 'pry-remote-em/broker'
 require 'pry-remote-em/server/shell_cmd'
+require 'pry-remote-em/ext/server'
 
 # How it works with Pry
 #
@@ -84,7 +85,10 @@ module PryRemoteEm
             Fiber.new {
               begin
                 yield pre if block_given?
-                Pry.start(obj, :input => pre, :output => pre)
+                shim  = proc { |target, opts, pry|  shim_pry(target, opts, pry, pre) }
+                hooks = {:when_started => shim}
+                hooks = Pry::Hooks.from_hash(hooks) if defined?(Pry::Hooks)
+                Pry.start(obj, :input => pre, :output => pre, :hooks => hooks)
               ensure
                 pre.close_connection
               end
@@ -113,6 +117,19 @@ module PryRemoteEm
         url
       end
 
+      def pry_hooks
+        hooks = {:when_started => method(:shim_pry) }
+        defined?(Pry::Hooks) ? Pry::Hooks.from_hash(hooks) : hooks
+      end
+
+      # Store a connection in the _pryem_ attribute of a Pry instance.
+      # Helpers for the Pry instance can use it to communicate with the client. If
+      # the Pry instance reponds to :_pryem_ and Pry#_pryem_ is not nil then that
+      # instance of Pry is part of a pry-remote-em server.
+      def shim_pry(target, options, pry, pryem)
+        pry.instance_variable_set(:@_pryem_, pryem)
+      end
+
       # The list of pry-remote-em connections for a given object, or the list of all pry-remote-em
       # connections for this process.
       # The peer list is used when broadcasting messages between connections.
@@ -137,6 +154,8 @@ module PryRemoteEm
       @opts             = opts
       @allow_shell_cmds = opts[:allow_shell_cmds]
       @log              = opts[:logger] || ::Logger.new(STDERR)
+      @editing          = {}
+      @asking_confirm   = {}
       # Blocks that will be called on each authentication attempt, prior checking the credentials
       @auth_attempt_cbs = []
       # All authentication attempts that occured before an auth callback was registered
@@ -179,6 +198,7 @@ module PryRemoteEm
       port, ip        = Socket.unpack_sockaddr_in(get_peername)
       @log.info("[pry-remote-em] received client connection from #{ip}:#{port}")
       # TODO include first level prompt in banner
+      # TODO include the VM type in banner, e.g., 'jruby'.
       send_banner("PryRemoteEm #{VERSION} #{@opts[:tls] ? 'pryems' : 'pryem'}")
       @log.info("#{url} PryRemoteEm #{VERSION} #{@opts[:tls] ? 'pryems' : 'pryem'}")
       @opts[:tls] ? start_tls : (@auth_required && send_auth(false))
@@ -405,6 +425,44 @@ module PryRemoteEm
 
     def flush
       true
+    end
+
+
+    # Provide editing capabilities
+
+    def invoke_editor(file, line, contents)
+      @editing[file] = Fiber.current
+      @log.info("sending edit #{file}:#{line} request")
+      send_edit(file, line, contents)
+      return Fiber.yield
+    end
+
+    def receive_edit(file, line, new_contents)
+      @log.info("received #{file.inspect}:#{line} edit results")
+      if @editing[file] && @editing[file].alive?
+        @editing.delete(file).resume(new_contents)
+      end
+    end
+
+    def receive_edit_failed(file, line, err)
+      @log.error("edit #{file}:#{line} failed: #{err}")
+      if @editing[file] && @editing[file].alive?
+        @editing.delete(file).resume(false)
+      end
+    end
+
+    def update_changed(file, line, diff = "")
+      @log.info("asking for #{file} overwrite confirmation")
+      @asking_confirm[file] = Fiber.current
+      send_edit_changed(file, line, diff)
+      return Fiber.yield
+    end
+
+    def receive_edit_changed(file, yes_no)
+      @log.warn("overwrite #{file} confirmation: #{yes_no.inspect}")
+      if @asking_confirm[file] && @asking_confirm[file].alive?
+        @asking_confirm.delete(file).resume(yes_no)
+      end
     end
   end # module::Server
 end # module::PryRemoteEm

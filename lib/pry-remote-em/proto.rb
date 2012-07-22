@@ -87,6 +87,12 @@ module PryRemoteEm
         receive_start_tls
       elsif j['pc']
         receive_proxy_connection(j['pc'])
+       elsif j['e']
+         receive_edit(*j['e'])
+       elsif j['ec']
+         receive_edit_changed(*j['ec'])
+       elsif j['ef']
+         receive_edit_failed(*j['ef'])
       else
         receive_unknown(j)
       end
@@ -114,6 +120,11 @@ module PryRemoteEm
     def receive_server_list(list = nil); end
 
     def receive_proxy_connection(url); end
+
+    def recieve_edit(file, line, contents); end
+    def receive_edit_changed(file, line_yes_no, diff = ""); end
+    def receive_edit_failed(file, line, error); end
+
 
     def send_banner(g)
       send_json({:g => g})
@@ -162,6 +173,17 @@ module PryRemoteEm
 
     def send_proxy_connection(url)
       send_json({:pc => url})
+    end
+
+    def send_edit(file, line, contents)
+      send_json({:e => [file, line, contents]})
+    end
+
+    def send_edit_changed(file, line_yes_no, diff = nil)
+      send_json({:ec => [file, line_yes_no, diff].compact})
+    end
+    def send_edit_failed(file, line, error)
+      send_json({:ef => [file, line, error]})
     end
   end # module::Proto
 end # module::PryRemoteEm
