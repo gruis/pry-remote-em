@@ -88,7 +88,7 @@ module PryRemoteEm
                 shim  = proc { |target, opts, pry|  shim_pry(target, opts, pry, pre) }
                 hooks = {:when_started => shim}
                 hooks = Pry::Hooks.from_hash(hooks) if defined?(Pry::Hooks)
-                Pry.start(obj, :input => pre, :output => pre, :hooks => hooks, :extra_sticky_locals => {:_pryem_ => pre})
+                Pry.start(obj, :input => pre, :output => pre, :hooks => hooks)
               ensure
                 pre.close_connection
               end
@@ -122,10 +122,11 @@ module PryRemoteEm
         defined?(Pry::Hooks) ? Pry::Hooks.from_hash(hooks) : hooks
       end
 
+      # Store a connection in the _pryem_ attribute of a Pry instance.
+      # Helpers for the Pry instance can use it to communicate with the client. If
+      # the Pry instance reponds to :_pryem_ and Pry#_pryem_ is not nil then that
+      # instance of Pry is part of a pry-remote-em server.
       def shim_pry(target, options, pry, pryem)
-        #$stderr.puts "shim_pry(#{target}, #{options}, #{pry}, #{pryem})"
-        # TODO modify the invoke_editor helper method to look for a _pryem_ local and use
-        # that instead of the normal editor
         pry._pryem_ = pryem
       end
 
