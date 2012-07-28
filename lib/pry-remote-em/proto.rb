@@ -121,7 +121,7 @@ module PryRemoteEm
 
     def receive_proxy_connection(url); end
 
-    def recieve_edit(file, line, contents); end
+    def receive_edit(file, line, contents); end
     def receive_edit_changed(file, line_yes_no, diff = ""); end
     def receive_edit_failed(file, line, error); end
 
