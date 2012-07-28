@@ -430,23 +430,34 @@ module PryRemoteEm
 
     def invoke_editor(file, line, contents)
       @editing[file] = Fiber.current
+      @log.info("sending edit #{file}:#{line} request")
       send_edit(file, line, contents)
       return Fiber.yield
     end
 
     def receive_edit(file, line, new_contents)
+      @log.info("received #{file.inspect}:#{line} edit results")
       if @editing[file] && @editing[file].alive?
         @editing.delete(file).resume(new_contents)
       end
     end
 
-    def update_changed(file, line)
+    def receive_edit_failed(file, line, err)
+      @log.error("edit #{file}:#{line} failed: #{err}")
+      if @editing[file] && @editing[file].alive?
+        @editing.delete(file).resume(false)
+      end
+    end
+
+    def update_changed(file, line, diff = "")
+      @log.info("asking for #{file} overwrite confirmation")
       @asking_confirm[file] = Fiber.current
-      send_edit_changed(file, line)
+      send_edit_changed(file, line, diff)
       return Fiber.yield
     end
 
     def receive_edit_changed(file, yes_no)
+      @log.warn("overwrite #{file} confirmation: #{yes_no.inspect}")
       if @asking_confirm[file] && @asking_confirm[file].alive?
         @asking_confirm.delete(file).resume(yes_no)
       end
