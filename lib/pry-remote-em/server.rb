@@ -127,7 +127,7 @@ module PryRemoteEm
       # the Pry instance reponds to :_pryem_ and Pry#_pryem_ is not nil then that
       # instance of Pry is part of a pry-remote-em server.
       def shim_pry(target, options, pry, pryem)
-        pry._pryem_ = pryem
+        pry.instance_variable_set(:@_pryem_, pryem)
       end
 
       # The list of pry-remote-em connections for a given object, or the list of all pry-remote-em
@@ -198,6 +198,7 @@ module PryRemoteEm
       port, ip        = Socket.unpack_sockaddr_in(get_peername)
       @log.info("[pry-remote-em] received client connection from #{ip}:#{port}")
       # TODO include first level prompt in banner
+      # TODO include the VM type in banner, e.g., 'jruby'.
       send_banner("PryRemoteEm #{VERSION} #{@opts[:tls] ? 'pryems' : 'pryem'}")
       @log.info("#{url} PryRemoteEm #{VERSION} #{@opts[:tls] ? 'pryems' : 'pryem'}")
       @opts[:tls] ? start_tls : (@auth_required && send_auth(false))
