@@ -97,6 +97,8 @@ module PryRemoteEm
         receive_gets(*j['gts'])
       elsif j.include?('gtc')
         j['gtc'].nil? ? receive_getc : receive_getc(j['gtc'])
+      elsif j['sio']
+        receive_gets(*j['sio'])
       else
        receive_unknown(j)
       end
@@ -131,6 +133,7 @@ module PryRemoteEm
 
     def receive_gets(sep_got, limit = nil); end
     def receive_getc(got = nil); end
+    def receive_share_io(yes_no = true); end
 
 
     def send_banner(g)
@@ -198,6 +201,9 @@ module PryRemoteEm
     end
     def send_edit_failed(file, line, error)
       send_json({:ef => [file, line, error]})
+    end
+    def send_share_io(yes_no)
+      send_json({:sio => yes_no})
     end
   end # module::Proto
 end # module::PryRemoteEm

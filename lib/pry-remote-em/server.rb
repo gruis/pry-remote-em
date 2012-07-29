@@ -424,6 +424,16 @@ module PryRemoteEm
         !@editing.empty?
     end
 
+    def receive_share_io(yes_no = true)
+      @share_io = yes_no
+    end
+
+    # Indicates if the client wants all STD{OUT,ERR,IN} even if it doesn't appear
+    # that the client was the one requesting it.
+    def share_io?
+      @share_io
+    end
+
     # Methods that make Server compatible with Pry
 
     def readline(prompt)

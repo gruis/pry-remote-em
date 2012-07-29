@@ -20,18 +20,18 @@ module PryRemoteEm
     def puts(*args)
       # clients waiting for responses are not the client responsible
       # for this #puts call; not true in a Threaded environment
-      @clients && @clients.each { |c|
-        !c.waiting? && c.puts(*args)
-      }
+      @clients && @clients.each do |c|
+        (c.share_io? || !c.waiting?) && c.puts(*args)
+      end
       @io.puts(*args)
     end
 
     def print(*args)
       # clients waiting for responses are not the client responsible
       # for this #puts call; not true in a Threaded environment
-      @clients && @clients.each { |c|
-        !c.waiting? && c.print(*args)
-      }
+      @clients && @clients.each do |c|
+        (c.share_io? || !c.waiting?) && c.print(*args)
+      end
       @io.print(*args)
     end
     alias :write :print
@@ -42,14 +42,14 @@ module PryRemoteEm
       @clients.each do |c|
         # clients waiting for responses are not the client responsible
         # for this #puts call; not true in a Threaded environment
-        next if c.waiting?
-        Fiber.new {
+        next if c.waiting? && !c.share_io?
+        Fiber.new do
           got = c.gets(*args)
           if !given && f.alive?
             given = true
             f.resume(got)
           end
-        }.resume
+        end.resume
       end
       return Fiber.yield
     end
