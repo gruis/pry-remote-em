@@ -310,5 +310,13 @@ module PryRemoteEm
       end
     end # readline(prompt = @last_prompt)
 
+    def receive_gets(*args)
+      send_gets(gets(*args))
+    end
+
+    def receive_getc
+      send_getc(getc)
+    end
+
   end # module::Client
 end # module::PryRemoteEm

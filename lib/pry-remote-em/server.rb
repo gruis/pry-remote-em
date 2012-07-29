@@ -3,6 +3,7 @@ require 'logger'
 require 'pry-remote-em'
 require 'pry-remote-em/broker'
 require 'pry-remote-em/server/shell_cmd'
+require 'pry-remote-em/server/io'
 require 'pry-remote-em/ext/server'
 
 # How it works with Pry
@@ -141,11 +142,29 @@ module PryRemoteEm
       # Record the association between a given object and a given pry-remote-em connection.
       def register(obj, peer)
         peers(obj).tap { |plist| plist.include?(peer) || plist.push(peer) }
+        stdin.register(peer)
+        stdout.register(peer)
+        stderr.register(peer)
       end
 
       # Remove the association between a given object and a given pry-remote-em connection.
       def unregister(obj, peer)
         peers(obj).tap {|plist| true while plist.delete(peer) }
+        stdin.unregister(peer)
+        stdout.unregister(peer)
+        stderr.unregister(peer)
+      end
+
+      def stdout
+        @stdout ||= PryRemoteEm::IO.new($stdout).tap{|io| $stdout = io }
+      end
+
+      def stderr
+        @stderr ||= PryRemoteEm::IO.new($stderr).tap{|io| $stderr = io }
+      end
+
+      def stdin
+        @stdin ||= PryRemoteEm::IO.new($stdin).tap{|io| $stdin = io }
       end
     end # class << self
 
@@ -395,6 +414,16 @@ module PryRemoteEm
       puts "\033[31m#{msg}\033[0m"
     end
 
+    # Has data been requested from the client, but not provided yet?
+    def waiting?
+      @auth_required ||
+        @waiting_gets ||
+        @waiting_getc ||
+        @waiting ||
+        !@asking_confirm.empty? ||
+        !@editing.empty?
+    end
+
     # Methods that make Server compatible with Pry
 
     def readline(prompt)
@@ -413,6 +442,32 @@ module PryRemoteEm
     def puts(data = "")
       s = data.to_s
       print(s[0] == "\n" ? s : s + "\n")
+    end
+
+    def gets(*args)
+      @waiting_gets = Fiber.current
+      send_gets(*args)
+      Fiber.yield
+    end
+
+    def receive_gets(got)
+      if @waiting_gets
+        f, @waiting_gets = @waiting_gets, nil
+        f.resume(got)
+      end
+    end
+
+    def getc(*args)
+      @waiting_getc = Fiber.current
+      send_getc(*args)
+      Fiber.yield
+    end
+
+    def receive_getc(got)
+      if @waiting_getc
+        f, @waiting_getc = @waiting_getc, nil
+        f.resume(got)
+      end
     end
 
     def completion_proc=(compl)

@@ -87,14 +87,18 @@ module PryRemoteEm
         receive_start_tls
       elsif j['pc']
         receive_proxy_connection(j['pc'])
-       elsif j['e']
-         receive_edit(*j['e'])
-       elsif j['ec']
-         receive_edit_changed(*j['ec'])
-       elsif j['ef']
-         receive_edit_failed(*j['ef'])
+      elsif j['e']
+        receive_edit(*j['e'])
+      elsif j['ec']
+        receive_edit_changed(*j['ec'])
+      elsif j['ef']
+        receive_edit_failed(*j['ef'])
+      elsif j['gts']
+        receive_gets(*j['gts'])
+      elsif j.include?('gtc')
+        j['gtc'].nil? ? receive_getc : receive_getc(j['gtc'])
       else
-        receive_unknown(j)
+       receive_unknown(j)
       end
       j
     end
@@ -125,6 +129,9 @@ module PryRemoteEm
     def receive_edit_changed(file, line_yes_no, diff = ""); end
     def receive_edit_failed(file, line, error); end
 
+    def receive_gets(sep_got, limit = nil); end
+    def receive_getc(got = nil); end
+
 
     def send_banner(g)
       send_json({:g => g})
@@ -152,6 +159,13 @@ module PryRemoteEm
     end
     def send_raw(l)
       send_json(l)
+    end
+
+    def send_gets(*args)
+      send_json({:gts => args})
+    end
+    def send_getc(got = nil)
+      send_json({:gtc => got})
     end
 
     def send_start_tls
