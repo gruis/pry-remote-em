@@ -7,6 +7,7 @@ rescue LoadError => e
 end
 require "pry-remote-em/client/generic"
 require 'pry/helpers/base_helpers'
+require 'pry/pager'
 require "readline"
 require 'highline'
 
