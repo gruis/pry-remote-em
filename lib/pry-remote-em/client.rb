@@ -6,8 +6,7 @@ rescue LoadError => e
   warn "[pry-remote-em] unable to load keyboard depenencies (termios); interactive shell commands disabled"
 end
 require "pry-remote-em/client/generic"
-require 'pry/helpers/base_helpers'
-require 'pry/pager'
+require 'pry'
 require "readline"
 require 'highline'
 
