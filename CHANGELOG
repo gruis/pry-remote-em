@@ -1,3 +1,7 @@
+0.7.4
+- [#40](https://github.com/simulacre/pry-remote-em/pull/40) - require 'pry', not its parts [rking](https://github.com/rking)
+- [#39](https://github.com/simulacre/pry-remote-em/pull/39) - stagger_output needs Pry::Pager to be loaded in the parent scope [pcmantz](https://github.com/pcmantz)
+
 0.7.3
 - Broker listens at 6462 everything else starts at 6463
 
