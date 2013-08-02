@@ -1,3 +1,6 @@
+0.7.5
+- [#42](https://github.com/simulacre/pry-remote-em/pull/42) - Use bytesize String method instead of length in protocol. [distorhead](https://github.com/distorhead)
+
 0.7.4
 - [#40](https://github.com/simulacre/pry-remote-em/pull/40) - require 'pry', not its parts [rking](https://github.com/rking)
 - [#39](https://github.com/simulacre/pry-remote-em/pull/39) - stagger_output needs Pry::Pager to be loaded in the parent scope [pcmantz](https://github.com/pcmantz)
