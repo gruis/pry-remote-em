@@ -5,8 +5,8 @@ module PryRemoteEm
   module Proto
     PREAMBLE      = 'PRYEM'
     SEPERATOR     = ' '
-    PREAMBLE_LEN  = PREAMBLE.length
-    SEPERATOR_LEN = SEPERATOR.length
+    PREAMBLE_LEN  = PREAMBLE.bytesize
+    SEPERATOR_LEN = SEPERATOR.bytesize
 
     def send_json(d)
       send_data(JSON.dump(d.is_a?(String) ? {:d => d} : d))
@@ -14,7 +14,7 @@ module PryRemoteEm
 
     def send_data(data)
       crc  = Zlib::crc32(data).to_s
-      msg  = PREAMBLE + (data.length + crc.length + SEPERATOR_LEN).to_s + SEPERATOR + crc + SEPERATOR +  data
+      msg  = PREAMBLE + (data.bytesize + crc.bytesize + SEPERATOR_LEN).to_s + SEPERATOR + crc + SEPERATOR +  data
       super(msg)
     end
 
@@ -27,18 +27,18 @@ module PryRemoteEm
     # an incomplete frame.
     # @example "PRYEM42 3900082256 {\"g\":\"PryRemoteEm 0.7.0 pryem\"}PRYEM22 1794245389 {\"a\":false}"
     def receive_data(d)
-      return unless d && d.length > 0
+      return unless d && d.bytesize > 0
       @buffer ||= "" # inlieu of a post_init
       @buffer << d
       while @buffer && !@buffer.empty?
-        return unless @buffer.length >= PREAMBLE_LEN &&
+        return unless @buffer.bytesize >= PREAMBLE_LEN &&
           (len_ends = @buffer.index(SEPERATOR)) &&
           (crc_ends = @buffer.index(SEPERATOR, len_ends))
         if (preamble = @buffer[0...PREAMBLE_LEN]) != PREAMBLE
           raise "message is not in proper format; expected #{PREAMBLE.inspect} not #{preamble.inspect}"
         end
         length    = @buffer[PREAMBLE_LEN ... len_ends].to_i
-        return if len_ends + length > @buffer.length
+        return if len_ends + length > @buffer.bytesize
         crc_start = len_ends + SEPERATOR_LEN
         crc, data = @buffer[crc_start ... crc_start + length].split(SEPERATOR, 2)
         crc       = crc.to_i
