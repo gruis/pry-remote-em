@@ -6,7 +6,7 @@ module PryRemoteEm
       include EM::Deferrable
       include Proto
 
-      def initialize(opt = {})
+      def initialize(opts = {})
         @opts   = opts
       end
 
