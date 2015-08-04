@@ -252,7 +252,10 @@ module PryRemoteEm
       if @negotiated && !@unbound
         op       = proc { Readline.readline(prompt, !prompt.nil?) }
         callback = proc do |l|
-          if '!!' == l[0..1]
+          if l.nil? # user pressed Ctrl-D
+            Kernel.puts
+            send_raw("exit")
+          elsif '!!' == l[0..1]
             send_msg_bcast(l[2..-1])
           elsif '!' == l[0]
             send_msg(l[1..-1])
