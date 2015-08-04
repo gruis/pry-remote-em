@@ -207,8 +207,7 @@ module PryRemoteEm
     end
 
     def receive_raw(r)
-      # Pry::Helpers::BaseHelpers
-      stagger_output(r, $stdout)
+      $stdout.print(r)
     end
 
     def receive_unknown(j)
