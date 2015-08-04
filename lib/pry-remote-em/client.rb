@@ -206,8 +206,14 @@ module PryRemoteEm
       end
     end
 
+    # TODO detect if the old pager behavior of Pry is supported and use it
+    # through Pry.pager. If it's not then use the SimplePager.
+    def pager
+      @pager ||= Pry::Pager::SimplePager.new($stdout)
+    end
+
     def receive_raw(r)
-      $stdout.print(r)
+      pager.write(r)
     end
 
     def receive_unknown(j)
@@ -278,6 +284,8 @@ module PryRemoteEm
   end # module::Client
 end # module::PryRemoteEm
 
+# TODO detect if the old pager behavior of Pry is supported and use it. If it's not
+# then don't bother adding a pager accessor
 # Pry::Helpers::BaseHelpers#stagger_output expects Pry.pager to be defined
 class Pry
   class << self
