@@ -3,7 +3,7 @@ require 'pry-remote-em'
 begin
   require 'pry-remote-em/client/keyboard'
 rescue LoadError => e
-  warn "[pry-remote-em] unable to load keyboard depenencies (termios); interactive shell commands disabled"
+  warn "[pry-remote-em] unable to load keyboard dependencies (termios); interactive shell commands disabled"
 end
 require "pry-remote-em/client/generic"
 require 'pry'
