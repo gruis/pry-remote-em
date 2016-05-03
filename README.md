@@ -28,13 +28,13 @@ class Foo
   end
 end
 
-EM.run { Foo.new 10, 20 } 
+EM.run { Foo.new 10, 20 }
 ```
 
 Running it will print out a message telling you Pry is waiting for a
 program to connect itself to it:
 
-     [pry-remote-em] listening for connections on pryem://localhost:6462/
+     [pry-remote-em] listening for connections on pryem://127.0.0.1:6462/
 
 You can then connect to the pry session using ``pry-remote-em``:
 
@@ -114,12 +114,12 @@ EM.run {
 $ pry-remote-em pryem://127.0.0.1:6462/
 [pry-remote-em] client connected to pryem://127.0.0.1:6462/
 [pry-remote-em] remote is PryRemoteEm 0.4.0 pryem
-[1] pry("pretty_print")> 
+[1] pry("pretty_print")>
 
 $ pry-remote-em  pryem://127.0.0.1:6463/
 [pry-remote-em] client connected to pryem://127.0.0.1:6463/
 [pry-remote-em] remote is PryRemoteEm 0.4.0 pryem
-[1] pry("pack")> 
+[1] pry("pack")>
 
 $ pry-remote-em  pryem://127.0.0.1:6464/
 [pry-remote-em] client connected to pryem://127.0.0.1:6464/
@@ -129,12 +129,12 @@ $ pry-remote-em  pryem://127.0.0.1:6464/
 $ pry-remote-em  pryem://127.0.0.1:6465/
 [pry-remote-em] client connected to pryem://127.0.0.1:6465/
 [pry-remote-em] remote is PryRemoteEm 0.4.0 pryem
-[1] pry("to_json")> 
+[1] pry("to_json")>
 
 $ pry-remote-em  pryem://127.0.0.1:6466/
 [pry-remote-em] client connected to pryem://127.0.0.1:6466/
 [pry-remote-em] remote is PryRemoteEm 0.4.0 pryem
-[1] pry(#<RubyVM::InstructionSequence>)> 
+[1] pry(#<RubyVM::InstructionSequence>)>
 ```
 
 ## Server Broker
@@ -142,9 +142,9 @@ $ pry-remote-em  pryem://127.0.0.1:6466/
 When more than one server is running on a given host and each server is
 started with :auto it can be time consuming to manually figure out which
 port each server is running on. The Broker which listens on port 6461
-keeps track of which server is running on which port. 
+keeps track of which server is running on which port.
 
-By default the pry-remote-em cli utility will connect to the broker and 
+By default the pry-remote-em cli utility will connect to the broker and
 retrieve a list of known servers. You can then select one to connect to
 by its id, name or url. You can also choose to proxy your connection
 through the broker to the selected server.
@@ -182,7 +182,7 @@ variable, or in :broker_host option passed to #remote_pry_em.
 
 ```shell
 
-$ PRYEMBROKER=0.0.0.0 be ./test/service.rb  
+$ PRYEMBROKER=0.0.0.0 be ./test/service.rb
 I, [2012-07-13T21:10:00.936993 #88528]  INFO -- : [pry-remote-em] listening for connections on pryem://0.0.0.0:6462/
 I, [2012-07-13T21:10:00.937132 #88528]  INFO -- : [pry-remote-em broker] listening on pryem://0.0.0.0:6461
 I, [2012-07-13T21:10:00.937264 #88528]  INFO -- : [pry-remote-em] listening for connections on pryem://0.0.0.0:1337/
@@ -196,13 +196,13 @@ I, [2012-07-13T21:10:00.939640 #88528]  INFO -- : [pry-remote-em] listening for 
 I, [2012-07-13T21:10:01.031576 #88528]  INFO -- : [pry-remote-em broker] received client connection from 127.0.0.1:62288
 I, [2012-07-13T21:10:01.031931 #88528]  INFO -- : [pry-remote-em] client connected to pryem://127.0.0.1:6461/
 I, [2012-07-13T21:10:01.032120 #88528]  INFO -- : [pry-remote-em] remote is PryRemoteEm 0.7.0 pryem
-I, [2012-07-13T21:10:01.032890 #88528]  INFO -- : [pry-remote-em broker] registered pryem://127.0.0.1:6462/ - "#<#<Class:0x007f924b9bbee8>>" 
-I, [2012-07-13T21:10:01.125123 #88528]  INFO -- : [pry-remote-em broker] registered pryem://127.0.0.1:6469/ - "#<#<Class:0x007f924b9bbee8>>" 
+I, [2012-07-13T21:10:01.032890 #88528]  INFO -- : [pry-remote-em broker] registered pryem://127.0.0.1:6462/ - "#<#<Class:0x007f924b9bbee8>>"
+I, [2012-07-13T21:10:01.125123 #88528]  INFO -- : [pry-remote-em broker] registered pryem://127.0.0.1:6469/ - "#<#<Class:0x007f924b9bbee8>>"
 I, [2012-07-13T21:10:01.125487 #88528]  INFO -- : [pry-remote-em broker] registered pryems://127.0.0.1:6467/ - "#<#<Class:0x007f924b9bbee8>>"
 I, [2012-07-13T21:10:01.490729 #88528]  INFO -- : [pry-remote-em broker] registered pryems://127.0.0.1:6464/ - "#<#<Class:0x007f924b9bbee8>>"
-I, [2012-07-13T21:10:01.583015 #88528]  INFO -- : [pry-remote-em broker] registered pryem://127.0.0.1:1337/ - "#<Foo>"                       
+I, [2012-07-13T21:10:01.583015 #88528]  INFO -- : [pry-remote-em broker] registered pryem://127.0.0.1:1337/ - "#<Foo>"
 I, [2012-07-13T21:10:01.674842 #88528]  INFO -- : [pry-remote-em broker] registered pryems://127.0.0.1:6466/ - "#<#<Class:0x007f924b9bbee8>>"
-I, [2012-07-13T21:10:01.766813 #88528]  INFO -- : [pry-remote-em broker] registered pryem://127.0.0.1:6468/ - "#<#<Class:0x007f924b9bbee8>>" 
+I, [2012-07-13T21:10:01.766813 #88528]  INFO -- : [pry-remote-em broker] registered pryem://127.0.0.1:6468/ - "#<#<Class:0x007f924b9bbee8>>"
 I, [2012-07-13T21:10:01.858423 #88528]  INFO -- : [pry-remote-em broker] registered pryems://127.0.0.1:6465/ - "#<#<Class:0x007f924b9bbee8>>"
 ```
 
@@ -220,18 +220,18 @@ TLS enabled server.
 
 
 ## TLS Encryption
-  
-When creating a server pass the :tls => true option to enable TLS. 
+
+When creating a server pass the :tls => true option to enable TLS.
 
 ```ruby
 obj.remote_pry_em('localhost', :auto, :tls => true)
 ```
 
-If you pass a Hash it will be used to configure the internal TLS handler. 
+If you pass a Hash it will be used to configure the internal TLS handler.
 
 ```ruby
 obj.remote_pry_em('localhost', :auto, :tls => {:private_key_file => '/tmp/server.key'})
-``` 
+```
 See [EventMachine::Connection#start_tls](http://eventmachine.rubyforge.org/EventMachine/Connection.html#M000296) for the available options.
 
 
@@ -244,7 +244,7 @@ $ pry-remote-em pryem://localhost:6462/
 [pry-remote-em] remote is PryRemoteEm 0.4.0 pryems
 [pry-remote-em] negotiating TLS
 [pry-remote-em] TLS connection established
-[1] pry(#<Hash>)> 
+[1] pry(#<Hash>)>
 ```
 
 To always require a TLS connection give pry-remote-em a pryem*s* URL. If
@@ -323,7 +323,7 @@ $ pry-remote-em pryems://localhost:6464/
 [pry-remote-em] TLS connection established
 user: caleb
 caleb's password: *****
-[1] pry(#<Hash>)> 
+[1] pry(#<Hash>)>
 ```
 
 
@@ -357,7 +357,7 @@ $ bin/pry-remote-em pryems:///
 [pry-remote-em] client connected to pryem://127.0.0.1:6462/
 [pry-remote-em] remote is PryRemoteEm 0.2.0 pryems
 [1] pry(#<Hash>)> key (^TAB ^TAB)
-key   key?  keys  
+key   key?  keys
 [1] pry(#<Hash>)> keys
 => [:encoding]
 ```
@@ -469,7 +469,7 @@ Copyright (c) 2012 Caleb Crane
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and associated documentation files (the "Software"),
-to deal in the Software without restriction, including without limitation 
+to deal in the Software without restriction, including without limitation
 the rights to use, copy, modify, merge, publish, distribute, sublicense,
 and/or sell copies of the Software, and to permit persons to whom the
 Software is furnished to do so, subject to the following conditions:
