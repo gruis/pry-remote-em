@@ -1,4 +1,4 @@
-require 'socket'
+﻿require 'socket'
 require 'pry-remote-em'
 require 'pry-remote-em/client/broker'
 require 'pry-remote-em/client/proxy'
@@ -134,8 +134,8 @@ module PryRemoteEm
     end
 
     def receive_register_server(url, name)
-      url      = URI.parse(url)
-      url.host = peer_ip if ['0.0.0.0', 'localhost', '127.0.0.1'].include?(url.host)
+      url = URI.parse(url)
+      url.hostname = peer_ip if ['0.0.0.0', 'localhost', '127.0.0.1', '::1'].include?(url.hostname)
       log.info("[pry-remote-em broker] registered #{url} - #{name.inspect}") unless Broker.servers[url] == name
       Broker.servers[url] = name
       Broker.hbeats[url]  = Time.new
@@ -144,8 +144,8 @@ module PryRemoteEm
     end
 
     def receive_unregister_server(url)
-      url      = URI.parse(url)
-      url.host = peer_ip if ['0.0.0.0', 'localhost', '127.0.0.1'].include?(url.host)
+      url = URI.parse(url)
+      url.hostname = peer_ip if ['0.0.0.0', 'localhost', '127.0.0.1', '::1'].include?(url.hostname)
       log.warn("[pry-remote-em broker] unregister #{url}")
       Broker.servers.delete(url)
     end
@@ -181,6 +181,7 @@ module PryRemoteEm
       return @peer_ip if @peer_ip
       return "" if get_peername.nil?
       @peer_port, @peer_ip = Socket.unpack_sockaddr_in(get_peername)
+      @peer_ip = '127.0.0.1' if @peer_ip == '::1' # Little hack to avoid segmentation fault in EventMachine 1.2.0.1 while connecting to PryRemoteEm Server from localhost with IPv6 address
       @peer_ip
     end
 

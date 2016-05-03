@@ -1,4 +1,4 @@
-begin
+﻿begin
   require 'openssl'
 rescue LoadError
   warn "OpenSSL support is not available"
@@ -11,10 +11,10 @@ require 'fiber'
 require 'uri'
 
 module PryRemoteEm
-  DEFHOST         = 'localhost'
+  DEFHOST         = '127.0.0.1'
   DEFPORT         = 6463
   DEF_BROKERPORT  = DEFPORT - 1
-  DEF_BROKERHOST  = 'localhost'
+  DEF_BROKERHOST  = '127.0.0.1'
   NEGOTIMER       = 15
 end
 
