@@ -74,7 +74,9 @@ module PryRemoteEm
       # @option opts [Logger] :logger
       # @option opts [Proc, Object] :auth require user authentication - see README
       # @option opts [Boolean] :allow_shell_cmds
-      def run(obj, host = ENV['PRYEMHOST'] || DEFHOST, port = ENV['PRYEMPORT'] || DEFPORT, opts = {:tls => false})
+      def run(obj, host = nil, port = nil, opts = {:tls => false})
+        host ||= ENV['PRYEMHOST'].nil? || ENV['PRYEMHOST'].empty? ? DEFHOST : ENV['PRYEMHOST']
+        port ||= ENV['PRYEMPORT'].nil? || ENV['PRYEMPORT'].empty? ? DEFPORT : ENV['PRYEMPORT']
         port = :auto if port == 'auto'
         port = port.to_i if port.kind_of?(String)
         tries = [port, opts[:port_fail]].include?(:auto) ? 100 : 1

@@ -20,7 +20,9 @@ end
 
 
 class Object
-  def remote_pry_em(host = PryRemoteEm::DEFHOST, port = PryRemoteEm::DEFPORT, opts = {:tls => false}, &blk)
+  def remote_pry_em(host = nil, port = nil, opts = {:tls => false}, &blk)
+    host ||= ENV['PRYEMHOST'].nil? || ENV['PRYEMHOST'].empty? ? PryRemoteEm::DEFHOST : ENV['PRYEMHOST']
+    port ||= ENV['PRYEMPORT'].nil? || ENV['PRYEMPORT'].empty? ? PryRemoteEm::DEFPORT : ENV['PRYEMPORT']
     opts = {:target => self}.merge(opts)
     PryRemoteEm::Server.run(opts[:target], host, port, opts, &blk)
   end

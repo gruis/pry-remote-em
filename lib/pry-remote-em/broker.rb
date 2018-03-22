@@ -10,7 +10,9 @@ module PryRemoteEm
       attr_reader :listening, :host, :port
       alias :listening? :listening
 
-      def run(host = ENV['PRYEMBROKER'] || DEF_BROKERHOST, port = ENV['PRYEMBROKERPORT'] || DEF_BROKERPORT, opts = {:tls => false})
+      def run(host = nil, port = nil, opts = {:tls => false})
+        host ||= ENV['PRYEMBROKER'].nil? || ENV['PRYEMBROKER'].empty? ? DEF_BROKERHOST : ENV['PRYEMBROKER']
+        port ||= ENV['PRYEMBROKERPORT'].nil? || ENV['PRYEMBROKERPORT'].empty? ? DEF_BROKERPORT : ENV['PRYEMBROKERPORT']
         port = port.to_i if port.kind_of?(String)
         raise "root permission required for port below 1024 (#{port})" if port < 1024 && Process.euid != 0
         @host      = host
