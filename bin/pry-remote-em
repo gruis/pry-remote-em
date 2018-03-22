@@ -40,7 +40,13 @@ OptionParser.new do |opts|
   opts.parse!(ARGV)
 end
 
-uri = ARGV[0] || "pryem://#{PryRemoteEm::DEF_BROKERHOST}:#{PryRemoteEm::DEF_BROKERPORT}"
+uri = if ARGV[0].nil? || ARGV[0].empty?
+  host = ENV['PRYEMBROKER'].nil? || ENV['PRYEMBROKER'].empty? ? PryRemoteEm::DEF_BROKERHOST : ENV['PRYEMBROKER']
+  port = ENV['PRYEMBROKERPORT'].nil? || ENV['PRYEMBROKERPORT'].empty? ? PryRemoteEm::DEF_BROKERPORT : ENV['PRYEMBROKERPORT']
+  "pryem://#{host}:#{port}"
+else
+  ARGV[0]
+end
 uri = URI.parse(uri)
 unless %w(pryem pryems).include?(uri.scheme)
   abort "only pryem URIs are currently supported\n usage: pryem[s]://#{PryRemoteEm::DEF_BROKERHOST}:#{PryRemoteEm::DEF_BROKERPORT}"
