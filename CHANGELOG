@@ -7,6 +7,7 @@
 
 0.7.3
 - Broker listens at 6462 everything else starts at 6463
+- cli assumes port 6462 when not specified
 
 0.7.2
 - Broker.run yields to a block when broker connection has been established
@@ -28,7 +29,7 @@
 - adds PryRemoteEm.servers and PryRemoteEm.stop_server
 - broker can proxy requests to local or remote servers that have registered with it
 - closes #11 all servers will attempt to register with a broker; client will retrieve list of servers from the broker and present a menu to the user by default
-- when specifying a specific port to listen on the option :port_fail can be set to :auto; if binding fails attempt to bind on the next port 
+- when specifying a specific port to listen on the option :port_fail can be set to :auto; if binding fails attempt to bind on the next port
 - server.run returns a url (String) with the scheme, host and port of the listening server
 - json specific parts of wire protocol are abstracted away from client and server
 - json proto is a bit more robust: delimeter can be a part of data and CRC is performed

@@ -74,9 +74,11 @@ module PryRemoteEm
       # @option opts [Logger] :logger
       # @option opts [Proc, Object] :auth require user authentication - see README
       # @option opts [Boolean] :allow_shell_cmds
-      def run(obj, host = DEFHOST, port = DEFPORT, opts = {:tls => false})
+      def run(obj, host = ENV['PRYEMHOST'] || DEFHOST, port = ENV['PRYEMPORT'] || DEFPORT, opts = {:tls => false})
+        port = :auto if port == 'auto'
+        port = port.to_i if port.kind_of?(String)
         tries = [port, opts[:port_fail]].include?(:auto) ? 100 : 1
-        port  = DEFPORT if :auto == port
+        port  = DEFPORT if port == :auto
         # TODO raise a useful exception not RuntimeError
         raise "root permission required for port below 1024 (#{port})" if port < 1024 && Process.euid != 0
         begin
@@ -100,7 +102,8 @@ module PryRemoteEm
           raise "can't bind to #{host}:#{port} - #{e}"
         end
         url    = "#{opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}/"
-        name   = obj.send(:eval, 'self') rescue "#{obj}"
+        name   = opts[:name] || ENV['PRYEMNAME']
+        name ||= obj.send(:eval, 'self') rescue "#{obj}"
         name   = Pry.view_clip(name)
         PryRemoteEm.servers[url] = [server, name]
         (opts[:logger] || ::Logger.new(STDERR)).info("[pry-remote-em] listening for connections on #{url}")
@@ -176,8 +179,8 @@ module PryRemoteEm
       @lines = []
       Pry.config.pager, @old_pager = false, Pry.config.pager
       @auth_required  = @auth
-      port, ip        = Socket.unpack_sockaddr_in(get_peername)
-      @log.info("[pry-remote-em] received client connection from #{ip}:#{port}")
+      @port, @ip        = Socket.unpack_sockaddr_in(get_peername)
+      @log.info("[pry-remote-em] received client connection from #{@ip}:#{@port}")
       # TODO include first level prompt in banner
       send_banner("PryRemoteEm #{VERSION} #{@opts[:tls] ? 'pryems' : 'pryem'}")
       @log.info("#{url} PryRemoteEm #{VERSION} #{@opts[:tls] ? 'pryems' : 'pryem'}")
@@ -303,7 +306,7 @@ module PryRemoteEm
     def unbind
       Pry.config.pager  = @old_pager
       PryRemoteEm::Server.unregister(@obj, self)
-      @log.debug("[pry-remote-em] remote session terminated (#{peer_ip}:#{peer_port})")
+      @log.debug("[pry-remote-em] remote session terminated (#{@ip}:#{@port})")
     end
 
     def peers(all = false)

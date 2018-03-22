@@ -1,4 +1,5 @@
-﻿require 'socket'
+﻿require 'logger'
+require 'socket'
 require 'pry-remote-em'
 require 'pry-remote-em/client/broker'
 require 'pry-remote-em/client/proxy'
@@ -10,6 +11,7 @@ module PryRemoteEm
       alias :listening? :listening
 
       def run(host = ENV['PRYEMBROKER'] || DEF_BROKERHOST, port = ENV['PRYEMBROKERPORT'] || DEF_BROKERPORT, opts = {:tls => false})
+        port = port.to_i if port.kind_of?(String)
         raise "root permission required for port below 1024 (#{port})" if port < 1024 && Process.euid != 0
         @host      = host
         @port      = port
@@ -19,17 +21,19 @@ module PryRemoteEm
         opts       = opts.dup
         opts[:tls] = false
         @opts      = opts
-        begin
-          EM.start_server(host, port, PryRemoteEm::Broker, opts) do |broker|
-          end
-          log.info("[pry-remote-em broker] listening on #{opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}")
-          @listening = true
-        rescue => e
-          # EM 1.0.0.beta4's message tells us the port is in use; 0.12.10 just says, 'no acceptor'
-          if (e.message.include?('port is in use') || e.message.include?('no acceptor'))
-            # [pry-remote-em broker] a broker is already listening on #{host}:#{port}
-          else
-            raise e
+        unless ENV['PRYEMREMOTEBROKER'] || @opts[:remote_broker]
+          begin
+            EM.start_server(host, port, PryRemoteEm::Broker, opts) do |broker|
+            end
+            log.info("[pry-remote-em broker] listening on #{opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}")
+            @listening = true
+          rescue => e
+            # EM 1.0.0.beta4's message tells us the port is in use; 0.12.10 just says, 'no acceptor'
+            if (e.message.include?('port is in use') || e.message.include?('no acceptor'))
+              # [pry-remote-em broker] a broker is already listening on #{host}:#{port}
+            else
+              raise e
+            end
           end
         end
         client { |c| yield self } if block_given?

@@ -13,7 +13,7 @@ require 'uri'
 module PryRemoteEm
   DEFHOST         = '127.0.0.1'
   DEFPORT         = 6463
-  DEF_BROKERPORT  = DEFPORT - 1
+  DEF_BROKERPORT  = 6462
   DEF_BROKERHOST  = '127.0.0.1'
   NEGOTIMER       = 15
 end

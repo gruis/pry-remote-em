@@ -209,11 +209,14 @@ module PryRemoteEm
     # TODO detect if the old pager behavior of Pry is supported and use it
     # through Pry.pager. If it's not then use the SimplePager.
     def pager
-      @pager ||= Pry::Pager::SimplePager.new($stdout)
+      pager_class = ENV['PRYEMNOPAGER'] ? Pry::Pager::NullPager : @opts[:pager] || Pry::Pager::SimplePager
+      @pager ||= pager_class.new(Pry::Output.new(Pry))
     end
 
     def receive_raw(r)
       pager.write(r)
+    rescue Pry::Pager::StopPaging
+      warn "[pry-remote-em] stop paging is not implemented, use PRYEMNOPAGER environment variable to avoid paging at all"
     end
 
     def receive_unknown(j)

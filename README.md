@@ -141,7 +141,7 @@ $ pry-remote-em  pryem://127.0.0.1:6466/
 
 When more than one server is running on a given host and each server is
 started with :auto it can be time consuming to manually figure out which
-port each server is running on. The Broker which listens on port 6461
+port each server is running on. The Broker which listens on port 6462
 keeps track of which server is running on which port.
 
 By default the pry-remote-em cli utility will connect to the broker and
@@ -152,7 +152,7 @@ through the broker to the selected server.
 ```shell
 
 $ bin/pry-remote-em
-[pry-remote-em] client connected to pryem://127.0.0.1:6461/
+[pry-remote-em] client connected to pryem://127.0.0.1:6462/
 [pry-remote-em] remote is PryRemoteEm 0.7.0 pryem
 -----------------------------------------------------------------------------
 | id  |  name                              |  url                           |
@@ -176,7 +176,7 @@ connect to: 3
 [1] pry(#<#<Class:0x007f924b9bbee8>>)>
 ```
 
-By default the Broker will listen on 127.0.0.1:6461. To change the ip
+By default the Broker will listen on 127.0.0.1:6462. To change the ip
 address that the Broker binds to specify it in a PRYEMBROKER environment
 variable, or in :broker_host option passed to #remote_pry_em.
 
@@ -184,7 +184,7 @@ variable, or in :broker_host option passed to #remote_pry_em.
 
 $ PRYEMBROKER=0.0.0.0 be ./test/service.rb
 I, [2012-07-13T21:10:00.936993 #88528]  INFO -- : [pry-remote-em] listening for connections on pryem://0.0.0.0:6462/
-I, [2012-07-13T21:10:00.937132 #88528]  INFO -- : [pry-remote-em broker] listening on pryem://0.0.0.0:6461
+I, [2012-07-13T21:10:00.937132 #88528]  INFO -- : [pry-remote-em broker] listening on pryem://0.0.0.0:6462
 I, [2012-07-13T21:10:00.937264 #88528]  INFO -- : [pry-remote-em] listening for connections on pryem://0.0.0.0:1337/
 I, [2012-07-13T21:10:00.937533 #88528]  INFO -- : [pry-remote-em] listening for connections on pryems://0.0.0.0:6463/
 I, [2012-07-13T21:10:00.937804 #88528]  INFO -- : [pry-remote-em] listening for connections on pryems://0.0.0.0:6464/
@@ -194,7 +194,7 @@ I, [2012-07-13T21:10:00.938835 #88528]  INFO -- : [pry-remote-em] listening for 
 I, [2012-07-13T21:10:00.939230 #88528]  INFO -- : [pry-remote-em] listening for connections on pryem://0.0.0.0:6468/
 I, [2012-07-13T21:10:00.939640 #88528]  INFO -- : [pry-remote-em] listening for connections on pryem://0.0.0.0:6469/
 I, [2012-07-13T21:10:01.031576 #88528]  INFO -- : [pry-remote-em broker] received client connection from 127.0.0.1:62288
-I, [2012-07-13T21:10:01.031931 #88528]  INFO -- : [pry-remote-em] client connected to pryem://127.0.0.1:6461/
+I, [2012-07-13T21:10:01.031931 #88528]  INFO -- : [pry-remote-em] client connected to pryem://127.0.0.1:6462/
 I, [2012-07-13T21:10:01.032120 #88528]  INFO -- : [pry-remote-em] remote is PryRemoteEm 0.7.0 pryem
 I, [2012-07-13T21:10:01.032890 #88528]  INFO -- : [pry-remote-em broker] registered pryem://127.0.0.1:6462/ - "#<#<Class:0x007f924b9bbee8>>"
 I, [2012-07-13T21:10:01.125123 #88528]  INFO -- : [pry-remote-em broker] registered pryem://127.0.0.1:6469/ - "#<#<Class:0x007f924b9bbee8>>"
@@ -211,7 +211,7 @@ running on a different host. Just specify the Brokers address in the
 PRYEMBROKER environment variable or the :broker_host option passed to #remote_pry_em.
 
 To connect to a broker running on a seperate host with the cli client
-just specify it on the command line ``bin/pry-remote-em preym://10.0.0.2:6461/``.
+just specify it on the command line ``bin/pry-remote-em preym://10.0.0.2:6462/``.
 You can then proxy your client connections to remote servers through
 that Broker.
 
