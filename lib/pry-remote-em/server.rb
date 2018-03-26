@@ -103,13 +103,12 @@ module PryRemoteEm
           end
           raise "can't bind to #{host}:#{port} - #{e}"
         end
-        url    = "#{opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}/"
-        name   = opts[:name] || ENV['PRYEMNAME']
-        name ||= obj.send(:eval, 'self') rescue "#{obj}"
-        name   = Pry.view_clip(name)
+        url  = opts[:external_url] || ENV['PRYEMURL'] || "#{opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}/"
+        name = opts[:name] || ENV['PRYEMNAME'] || obj.send(:eval, 'self') rescue "#{obj}"
+        name = Pry.view_clip(name)
         PryRemoteEm.servers[url] = [server, name]
         (opts[:logger] || ::Logger.new(STDERR)).info("[pry-remote-em] listening for connections on #{url}")
-        Broker.run(opts[:broker_host] || ENV['PRYEMBROKER'] || DEF_BROKERHOST, opts[:broker_port] || ENV['PRYEMBROKERPORT'] || DEF_BROKERPORT, opts) do |broker|
+        Broker.run(opts[:broker_host], opts[:broker_port], opts) do |broker|
           broker.register(url, name)
           rereg = EM::PeriodicTimer.new(15) do
             EM.get_sockname(server) ? broker.register(url, name) : nil #rereg.cancel

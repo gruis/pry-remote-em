@@ -194,7 +194,7 @@ module PryRemoteEm
     def peer_port
       return @peer_port if @peer_port
       return "" if get_peername.nil?
-      @peer_port, @peer_ip = Socket.unpack_sockaddr_in(get_peername)
+      peer_ip # Fills peer_port too
       @peer_port
     end
 
