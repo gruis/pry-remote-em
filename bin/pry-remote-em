@@ -13,6 +13,9 @@ OptionParser.new do |opts|
   opts.on("-p", "--proxy NAME", "proxy through the broker to the first pry remote em server matching NAME") do |name|
     options[:proxy] = name
   end
+  opts.on("-P", "--proxy_by_default", "show servers table with proxy mode enabled by default (ignored on -c or -p)") do |name|
+    options[:proxy_by_default] = true
+  end
 
   opts.on("--fh HOST", "--filter-host HOST", "only show servers listening at the given address (regexp)") do |host|
     if host =~ /^pryems?:\/\//
