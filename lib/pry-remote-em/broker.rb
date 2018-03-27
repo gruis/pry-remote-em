@@ -1,3 +1,4 @@
+﻿require 'logger'
 require 'socket'
 require 'pry-remote-em'
 require 'pry-remote-em/client/broker'
@@ -9,7 +10,10 @@ module PryRemoteEm
       attr_reader :listening, :host, :port
       alias :listening? :listening
 
-      def run(host = ENV['PRYEMBROKER'] || DEF_BROKERHOST, port = ENV['PRYEMBROKERPORT'] || DEF_BROKERPORT, opts = {:tls => false})
+      def run(host = nil, port = nil, opts = {:tls => false})
+        host ||= ENV['PRYEMBROKER'].nil? || ENV['PRYEMBROKER'].empty? ? DEF_BROKERHOST : ENV['PRYEMBROKER']
+        port ||= ENV['PRYEMBROKERPORT'].nil? || ENV['PRYEMBROKERPORT'].empty? ? DEF_BROKERPORT : ENV['PRYEMBROKERPORT']
+        port = port.to_i if port.kind_of?(String)
         raise "root permission required for port below 1024 (#{port})" if port < 1024 && Process.euid != 0
         @host      = host
         @port      = port
@@ -19,17 +23,19 @@ module PryRemoteEm
         opts       = opts.dup
         opts[:tls] = false
         @opts      = opts
-        begin
-          EM.start_server(host, port, PryRemoteEm::Broker, opts) do |broker|
-          end
-          log.info("[pry-remote-em broker] listening on #{opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}")
-          @listening = true
-        rescue => e
-          # EM 1.0.0.beta4's message tells us the port is in use; 0.12.10 just says, 'no acceptor'
-          if (e.message.include?('port is in use') || e.message.include?('no acceptor'))
-            # [pry-remote-em broker] a broker is already listening on #{host}:#{port}
-          else
-            raise e
+        unless ENV['PRYEMREMOTEBROKER'] || @opts[:remote_broker]
+          begin
+            EM.start_server(host, port, PryRemoteEm::Broker, opts) do |broker|
+            end
+            log.info("[pry-remote-em broker] listening on #{opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}")
+            @listening = true
+          rescue => e
+            # EM 1.0.0.beta4's message tells us the port is in use; 0.12.10 just says, 'no acceptor'
+            if (e.message.include?('port is in use') || e.message.include?('no acceptor'))
+              # [pry-remote-em broker] a broker is already listening on #{host}:#{port}
+            else
+              raise e
+            end
           end
         end
         client { |c| yield self } if block_given?
@@ -134,8 +140,8 @@ module PryRemoteEm
     end
 
     def receive_register_server(url, name)
-      url      = URI.parse(url)
-      url.host = peer_ip if ['0.0.0.0', 'localhost', '127.0.0.1'].include?(url.host)
+      url = URI.parse(url)
+      url.hostname = peer_ip if ['0.0.0.0', 'localhost', '127.0.0.1', '::1'].include?(url.hostname)
       log.info("[pry-remote-em broker] registered #{url} - #{name.inspect}") unless Broker.servers[url] == name
       Broker.servers[url] = name
       Broker.hbeats[url]  = Time.new
@@ -144,8 +150,8 @@ module PryRemoteEm
     end
 
     def receive_unregister_server(url)
-      url      = URI.parse(url)
-      url.host = peer_ip if ['0.0.0.0', 'localhost', '127.0.0.1'].include?(url.host)
+      url = URI.parse(url)
+      url.hostname = peer_ip if ['0.0.0.0', 'localhost', '127.0.0.1', '::1'].include?(url.hostname)
       log.warn("[pry-remote-em broker] unregister #{url}")
       Broker.servers.delete(url)
     end
@@ -181,13 +187,14 @@ module PryRemoteEm
       return @peer_ip if @peer_ip
       return "" if get_peername.nil?
       @peer_port, @peer_ip = Socket.unpack_sockaddr_in(get_peername)
+      @peer_ip = '127.0.0.1' if @peer_ip == '::1' # Little hack to avoid segmentation fault in EventMachine 1.2.0.1 while connecting to PryRemoteEm Server from localhost with IPv6 address
       @peer_ip
     end
 
     def peer_port
       return @peer_port if @peer_port
       return "" if get_peername.nil?
-      @peer_port, @peer_ip = Socket.unpack_sockaddr_in(get_peername)
+      peer_ip # Fills peer_port too
       @peer_port
     end
 

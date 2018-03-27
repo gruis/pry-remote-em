@@ -1,4 +1,4 @@
-begin
+﻿begin
   require 'openssl'
 rescue LoadError
   warn "OpenSSL support is not available"
@@ -11,16 +11,18 @@ require 'fiber'
 require 'uri'
 
 module PryRemoteEm
-  DEFHOST         = 'localhost'
+  DEFHOST         = '127.0.0.1'
   DEFPORT         = 6463
-  DEF_BROKERPORT  = DEFPORT - 1
-  DEF_BROKERHOST  = 'localhost'
+  DEF_BROKERPORT  = 6462
+  DEF_BROKERHOST  = '127.0.0.1'
   NEGOTIMER       = 15
 end
 
 
 class Object
-  def remote_pry_em(host = PryRemoteEm::DEFHOST, port = PryRemoteEm::DEFPORT, opts = {:tls => false}, &blk)
+  def remote_pry_em(host = nil, port = nil, opts = {:tls => false}, &blk)
+    host ||= ENV['PRYEMHOST'].nil? || ENV['PRYEMHOST'].empty? ? PryRemoteEm::DEFHOST : ENV['PRYEMHOST']
+    port ||= ENV['PRYEMPORT'].nil? || ENV['PRYEMPORT'].empty? ? PryRemoteEm::DEFPORT : ENV['PRYEMPORT']
     opts = {:target => self}.merge(opts)
     PryRemoteEm::Server.run(opts[:target], host, port, opts, &blk)
   end

@@ -94,7 +94,6 @@ module PryRemoteEm
 
     def choose_server(list)
       highline    = HighLine.new
-      proxy       = false
       choice      = nil
       nm_col_len  = list.values.map(&:length).sort[-1] + 5
       ur_col_len  = list.keys.map(&:length).sort[-1] + 5
@@ -110,18 +109,25 @@ module PryRemoteEm
       table << border
       table   = table.join("\n")
       Kernel.puts table
+
+      proxy = if (choice = opts.delete(:proxy))
+        true
+      elsif (choice = opts.delete(:connect))
+        false
+      elsif opts.delete(:proxy_by_default)
+        true
+      else
+        false
+      end
+
       while choice.nil?
         if proxy
-          question = "(q) to quit; (r) to refresh (c) to connect\nproxy to: "
+          question = "(q) to quit; (r) to refresh (c) to connect without proxy\nproxy to: "
         else
           question = "(q) to quit; (r) to refresh (p) to proxy\nconnect to: "
         end
-        if (choice = opts.delete(:proxy))
-          proxy = true
-        else
-          choice = opts.delete(:connect) || highline.ask(question)
-          proxy = false
-        end
+
+        choice = highline.ask(question)
 
         return close_connection if ['q', 'quit', 'exit'].include?(choice.downcase)
         if ['r', 'reload', 'refresh'].include?(choice.downcase)
@@ -209,11 +215,14 @@ module PryRemoteEm
     # TODO detect if the old pager behavior of Pry is supported and use it
     # through Pry.pager. If it's not then use the SimplePager.
     def pager
-      @pager ||= Pry::Pager::SimplePager.new($stdout)
+      pager_class = ENV['PRYEMNOPAGER'] ? Pry::Pager::NullPager : @opts[:pager] || Pry::Pager::SimplePager
+      @pager ||= pager_class.new(Pry::Output.new(Pry))
     end
 
     def receive_raw(r)
       pager.write(r)
+    rescue Pry::Pager::StopPaging
+      warn "[pry-remote-em] stop paging is not implemented, use PRYEMNOPAGER environment variable to avoid paging at all"
     end
 
     def receive_unknown(j)
