@@ -1,5 +1,5 @@
 require 'json'
-require "zlib"
+require 'zlib'
 
 module PryRemoteEm
   module Proto
@@ -9,7 +9,7 @@ module PryRemoteEm
     SEPERATOR_LEN = SEPERATOR.bytesize
 
     def send_json(d)
-      send_data(JSON.dump(d.is_a?(String) ? {:d => d} : d))
+      send_data(JSON.dump(d.is_a?(String) ? {d: d} : d))
     end
 
     def send_data(data)
@@ -28,7 +28,7 @@ module PryRemoteEm
     # @example "PRYEM42 3900082256 {\"g\":\"PryRemoteEm 0.7.0 pryem\"}PRYEM22 1794245389 {\"a\":false}"
     def receive_data(d)
       return unless d && d.bytesize > 0
-      @buffer ||= "" # inlieu of a post_init
+      @buffer ||= '' # inlieu of a post_init
       @buffer << d
       while @buffer && !@buffer.empty?
         return unless @buffer.bytesize >= PREAMBLE_LEN &&
@@ -66,7 +66,7 @@ module PryRemoteEm
       elsif j.include?('sc')
         receive_shell_result(j['sc'])
       elsif j['g']
-        receive_banner(*j['g'].split(" ", 3))
+        receive_banner(*j['g'].split(' ', 3))
       elsif j['c']
         receive_completion(j['c'])
       elsif j.include?('a')
@@ -116,52 +116,52 @@ module PryRemoteEm
     def receive_proxy_connection(url); end
 
     def send_banner(g)
-      send_json({:g => g})
+      send_json({g: g})
     end
     def send_auth(a)
-      send_json({:a => a})
+      send_json({a: a})
     end
     def send_prompt(p)
-      send_json({:p => p})
+      send_json({p: p})
     end
     def send_msg_bcast(m)
-      send_json({:mb => m})
+      send_json({mb: m})
     end
     def send_msg(m)
-      send_json({:m => m})
+      send_json({m: m})
     end
     def send_shell_cmd(c)
-      send_json({:s => c})
+      send_json({s: c})
     end
     def send_shell_result(r)
-      send_json({:sc => r})
+      send_json({sc: r})
     end
     def send_completion(word)
-      send_json({:c => word})
+      send_json({c: word})
     end
     def send_raw(l)
       send_json(l)
     end
 
     def send_start_tls
-      send_json({:tls => true})
+      send_json({tls: true})
     end
 
     def send_register_server(url, name)
-      send_json({:rs => [url, name]})
+      send_json({rs: [url, name]})
     end
     def send_unregister_server(url)
-      send_json({:urs => url})
+      send_json({urs: url})
     end
     def send_heatbeat(url)
-      send_json({:hb => url})
+      send_json({hb: url})
     end
     def send_server_list(list = nil)
-      send_json({:sl => list})
+      send_json({sl: list})
     end
 
     def send_proxy_connection(url)
-      send_json({:pc => url})
+      send_json({pc: url})
     end
   end # module::Proto
 end # module::PryRemoteEm

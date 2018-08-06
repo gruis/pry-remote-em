@@ -1,4 +1,4 @@
-require "termios"
+require 'termios'
 module PryRemoteEm
   module Client
     module Keyboard
@@ -10,16 +10,16 @@ module PryRemoteEm
         # On EM < 1.0.0.beta.4 the keyboard handler and Termios don't work well together
         # readline will complain that STDIN isn't a tty after Termios manipulation, so
         # just don't let it happen
-        @manip_buff     = Gem.loaded_specs["eventmachine"].version >= Gem::Version.new("1.0.0.beta.4")
+        @manip_buff     = Gem.loaded_specs['eventmachine'].version >= Gem::Version.new('1.0.0.beta.4')
         bufferio(false)
         # TODO retain the old SIGINT handler and reset it later
         trap :SIGINT do
-          @con.send_data({:ssc => true})
+          @con.send_data({ssc: true})
         end
       end
 
       def receive_data(d)
-        @con.send_data({:sd => d})
+        @con.send_data({sd: d})
       end
 
       def unbind

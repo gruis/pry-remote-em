@@ -6,7 +6,7 @@ module PryRemoteEm
       end
 
       def receive_data(d)
-        @pryem.send_shell_cmd(d.force_encoding("utf-8"))
+        @pryem.send_shell_cmd(d.force_encoding('utf-8'))
       end
 
       alias :receive_stderr :receive_data

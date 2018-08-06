@@ -1,4 +1,4 @@
-require "pry-remote-em/proto"
+require 'pry-remote-em/proto'
 
 module PryRemoteEm
   module Client
@@ -27,7 +27,7 @@ module PryRemoteEm
       def start_tls
         return if @tls_started
         @tls_started = true
-        log.info("[pry-remote-em] negotiating TLS")
+        log.info('[pry-remote-em] negotiating TLS')
         super(opts[:tls].is_a?(Hash) ? opts[:tls] : {})
       end
 
@@ -37,7 +37,7 @@ module PryRemoteEm
           log.info("[pry-remote-em] client connected to pryem://#{ip}:#{port}/")
         else
           # TODO use the args used to create this connection
-          log.info("[pry-remote-em] client connected")
+          log.info('[pry-remote-em] client connected')
         end
         @nego_timer = EM::Timer.new(PryRemoteEm::NEGOTIMER) do
           fail("[pry-remote-em] server didn't finish negotiation within #{PryRemoteEm::NEGOTIMER} seconds; terminating")

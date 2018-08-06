@@ -3,11 +3,11 @@ require 'pry-remote-em'
 begin
   require 'pry-remote-em/client/keyboard'
 rescue LoadError => e
-  warn "[pry-remote-em] unable to load keyboard dependencies (termios); interactive shell commands disabled"
+  warn '[pry-remote-em] unable to load keyboard dependencies (termios); interactive shell commands disabled'
 end
-require "pry-remote-em/client/generic"
+require 'pry-remote-em/client/generic'
 require 'pry'
-require "readline"
+require 'readline'
 require 'highline'
 
 module PryRemoteEm
@@ -17,7 +17,7 @@ module PryRemoteEm
     include Pry::Helpers::BaseHelpers
 
     class << self
-      def start(host = PryRemoteEm::DEFHOST, port = PryRemoteEM::DEFPORT, opts = {:tls => false})
+      def start(host = PryRemoteEm::DEFHOST, port = PryRemoteEM::DEFPORT, opts = {tls: false})
         EM.connect(host || PryRemoteEm::DEFHOST, port || PryRemoteEm::DEFPORT, PryRemoteEm::Client, opts) do |c|
           c.callback { yield if block_given? }
           c.errback do |e|
@@ -46,7 +46,7 @@ module PryRemoteEm
     end
 
     def ssl_handshake_completed
-      log.info("[pry-remote-em] TLS connection established")
+      log.info('[pry-remote-em] TLS connection established')
       @opts[:tls] = true
     end
 
@@ -60,9 +60,9 @@ module PryRemoteEm
         reconnect(uri.host, uri.port)
       else
         @unbound = true
-        log.info("[pry-remote-em] session terminated")
+        log.info('[pry-remote-em] session terminated')
         # prior to 1.0.0.b4 error? returns true here even when it's not
-        return succeed if Gem.loaded_specs["eventmachine"].version < Gem::Version.new("1.0.0.beta4")
+        return succeed if Gem.loaded_specs['eventmachine'].version < Gem::Version.new('1.0.0.beta4')
         error? ? fail : succeed
       end
     end
@@ -97,8 +97,8 @@ module PryRemoteEm
       choice      = nil
       nm_col_len  = list.values.map(&:length).sort[-1] + 5
       ur_col_len  = list.keys.map(&:length).sort[-1] + 5
-      header      = sprintf("| %-3s |  %-#{nm_col_len}s |  %-#{ur_col_len}s |", "", "name", "url")
-      border      = ("-" * header.length)
+      header      = sprintf("| %-3s |  %-#{nm_col_len}s |  %-#{ur_col_len}s |", '', 'name', 'url')
+      border      = ('-' * header.length)
       table       = [border, header, border]
       list        = list.to_a.map{|url, name| [URI.parse(url), name]}
       list        = filter_server_list(list)
@@ -222,7 +222,7 @@ module PryRemoteEm
     def receive_raw(r)
       pager.write(r)
     rescue Pry::Pager::StopPaging
-      warn "[pry-remote-em] stop paging is not implemented, use PRYEMNOPAGER environment variable to avoid paging at all"
+      warn '[pry-remote-em] stop paging is not implemented, use PRYEMNOPAGER environment variable to avoid paging at all'
     end
 
     def receive_unknown(j)
@@ -230,7 +230,7 @@ module PryRemoteEm
     end
 
     def authenticate
-      return fail("[pry-remote-em] authentication required") unless @auth
+      return fail('[pry-remote-em] authentication required') unless @auth
       return fail("[pry-remote-em] can't authenticate before negotiation complete") unless @negotiated
       user, pass = @auth.call
       return fail("[pry-remote-em] expected #{@auth} to return a user and password") unless user && pass
@@ -271,7 +271,7 @@ module PryRemoteEm
               readline(prompt)
             else
               send_shell_cmd(l[1..-1])
-              if Gem.loaded_specs["eventmachine"].version < Gem::Version.new("1.0.0.beta4")
+              if Gem.loaded_specs['eventmachine'].version < Gem::Version.new('1.0.0.beta4')
                 Kernel.puts "\033[1minteractive shell commands are not well supported when running on EventMachine prior to 1.0.0.beta4\033[0m"
               else
                 @keyboard = EM.open_keyboard(Keyboard, self)
@@ -284,7 +284,7 @@ module PryRemoteEm
             exec("#{$0} #{ARGV.join(' ')}")
           else
             send_raw(l)
-          end # "!!" == l[0..1]
+          end # '!!' == l[0..1]
         end
         EM.defer(op, callback)
       end

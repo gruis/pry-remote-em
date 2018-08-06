@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-require "pry-remote-em/server"
+require 'pry-remote-em/server'
 
 os     = ObjectSpace.each_object
 expose = []

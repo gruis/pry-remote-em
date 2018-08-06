@@ -1,7 +1,7 @@
 ﻿begin
   require 'openssl'
 rescue LoadError
-  warn "OpenSSL support is not available"
+  warn 'OpenSSL support is not available'
 end
 require 'pry-remote-em/version'
 require 'pry-remote-em/proto'
@@ -20,10 +20,10 @@ end
 
 
 class Object
-  def remote_pry_em(host = nil, port = nil, opts = {:tls => false}, &blk)
+  def remote_pry_em(host = nil, port = nil, opts = {tls: false}, &blk)
     host ||= ENV['PRYEMHOST'].nil? || ENV['PRYEMHOST'].empty? ? PryRemoteEm::DEFHOST : ENV['PRYEMHOST']
     port ||= ENV['PRYEMPORT'].nil? || ENV['PRYEMPORT'].empty? ? PryRemoteEm::DEFPORT : ENV['PRYEMPORT']
-    opts = {:target => self}.merge(opts)
+    opts = {target: self}.merge(opts)
     PryRemoteEm::Server.run(opts[:target], host, port, opts, &blk)
   end
 end

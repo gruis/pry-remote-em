@@ -74,7 +74,7 @@ module PryRemoteEm
       # @option opts [Logger] :logger
       # @option opts [Proc, Object] :auth require user authentication - see README
       # @option opts [Boolean] :allow_shell_cmds
-      def run(obj, host = nil, port = nil, opts = {:tls => false})
+      def run(obj, host = nil, port = nil, opts = { tls: false })
         host ||= ENV['PRYEMHOST'].nil? || ENV['PRYEMHOST'].empty? ? DEFHOST : ENV['PRYEMHOST']
         port ||= ENV['PRYEMPORT'].nil? || ENV['PRYEMPORT'].empty? ? DEFPORT : ENV['PRYEMPORT']
         port = :auto if port == 'auto'
@@ -88,7 +88,7 @@ module PryRemoteEm
             Fiber.new {
               begin
                 yield pre if block_given?
-                Pry.start(obj, :input => pre, :output => pre)
+                Pry.start(obj, input: pre, output: pre)
               ensure
                 pre.close_connection
               end
@@ -136,7 +136,7 @@ module PryRemoteEm
       end
     end # class << self
 
-    def initialize(obj, opts = {:tls => false})
+    def initialize(obj, opts = { tls: false })
       @obj              = obj
       @opts             = opts
       @allow_shell_cmds = opts[:allow_shell_cmds]
@@ -166,7 +166,7 @@ module PryRemoteEm
         return fail("auth handler must take two arguments not (#{a.method(:call).arity})") unless a.method(:call).arity == 2
         @auth = a
       else
-        return error("auth handler objects must respond to :call, or :[]") unless a.respond_to?(:[])
+        return error('auth handler objects must respond to :call, or :[]') unless a.respond_to?(:[])
         @auth = lambda {|u,p| a[u] && a[u] == p }
       end
     end
@@ -201,14 +201,14 @@ module PryRemoteEm
 
     def peer_ip
       return @peer_ip if @peer_ip
-      return "" if get_peername.nil?
+      return '' if get_peername.nil?
       @peer_port, @peer_ip = Socket.unpack_sockaddr_in(get_peername)
       @peer_ip
     end
 
     def peer_port
       return @peer_port if @peer_port
-      return "" if get_peername.nil?
+      return '' if get_peername.nil?
       @peer_port, @peer_ip = Socket.unpack_sockaddr_in(get_peername)
       @peer_port
     end
@@ -240,7 +240,7 @@ module PryRemoteEm
       else
        auth_fail(user, peer_ip)
         if @auth_tries <= 0
-          msg = "max authentication attempts reached"
+          msg = 'max authentication attempts reached'
           send_auth(msg)
           @log.debug("[pry-remote-em] #{msg} (#{peer_ip}:#{peer_port})")
           return close_connection_after_writing
@@ -394,7 +394,7 @@ module PryRemoteEm
     end
     alias :write :print
 
-    def puts(data = "")
+    def puts(data = '')
       s = data.to_s
       print(s[0] == "\n" ? s : s + "\n")
     end

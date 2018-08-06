@@ -1,4 +1,4 @@
-require "pry-remote-em/client/generic"
+require 'pry-remote-em/client/generic'
 module PryRemoteEm
   module Client
     module Proxy
@@ -13,7 +13,7 @@ module PryRemoteEm
           port, ip = Socket.unpack_sockaddr_in(get_peername)
           log.info("[pry-remote-em] proxy connected to pryem://#{ip}:#{port}/")
         else
-          log.info("[pry-remote-em] proxy connected")
+          log.info('[pry-remote-em] proxy connected')
         end
         @client.proxy_incoming_to(self)
         proxy_incoming_to(@client)

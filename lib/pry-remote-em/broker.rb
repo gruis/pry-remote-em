@@ -10,7 +10,7 @@ module PryRemoteEm
       attr_reader :listening, :host, :port
       alias :listening? :listening
 
-      def run(host = nil, port = nil, opts = {:tls => false})
+      def run(host = nil, port = nil, opts = { tls: false })
         host ||= ENV['PRYEMBROKER'].nil? || ENV['PRYEMBROKER'].empty? ? DEF_BROKERHOST : ENV['PRYEMBROKER']
         port ||= ENV['PRYEMBROKERPORT'].nil? || ENV['PRYEMBROKERPORT'].empty? ? DEF_BROKERPORT : ENV['PRYEMBROKERPORT']
         port = port.to_i if port.kind_of?(String)
@@ -110,7 +110,7 @@ module PryRemoteEm
     private
 
       def client(&blk)
-        raise ArgumentError.new("A block is required") unless block_given?
+        raise ArgumentError.new('A block is required') unless block_given?
         if @client
           yield @client
           return
@@ -121,7 +121,7 @@ module PryRemoteEm
         else
           @waiting = [blk]
           EM.connect(host, port, Client::Broker, @opts) do |client|
-            client.errback { |e| raise(e || "broker client error") }
+            client.errback { |e| raise(e || 'broker client error') }
             client.callback do
               @client    = client
               while (w = @waiting.shift)
@@ -162,7 +162,7 @@ module PryRemoteEm
       EM.connect(url.host, url.port, Client::Proxy, self)
     end
 
-    def initialize(opts = {:tls => false}, &blk)
+    def initialize(opts = { tls: false }, &blk)
       @opts   = opts
     end
 
@@ -185,7 +185,7 @@ module PryRemoteEm
 
     def peer_ip
       return @peer_ip if @peer_ip
-      return "" if get_peername.nil?
+      return '' if get_peername.nil?
       @peer_port, @peer_ip = Socket.unpack_sockaddr_in(get_peername)
       @peer_ip = '127.0.0.1' if @peer_ip == '::1' # Little hack to avoid segmentation fault in EventMachine 1.2.0.1 while connecting to PryRemoteEm Server from localhost with IPv6 address
       @peer_ip
@@ -193,7 +193,7 @@ module PryRemoteEm
 
     def peer_port
       return @peer_port if @peer_port
-      return "" if get_peername.nil?
+      return '' if get_peername.nil?
       peer_ip # Fills peer_port too
       @peer_port
     end

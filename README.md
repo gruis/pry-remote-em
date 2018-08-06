@@ -88,7 +88,7 @@ or even in the same process. When you start the service via
 will automatically take the next free port from 6462.
 
 ```ruby
-require "pry-remote-em/server"
+require 'pry-remote-em/server'
 
 os     = ObjectSpace.each_object
 expose = []
@@ -221,16 +221,16 @@ TLS enabled server.
 
 ## TLS Encryption
 
-When creating a server pass the :tls => true option to enable TLS.
+When creating a server pass the tls: true option to enable TLS.
 
 ```ruby
-obj.remote_pry_em('localhost', :auto, :tls => true)
+obj.remote_pry_em('localhost', :auto, tls: true)
 ```
 
 If you pass a Hash it will be used to configure the internal TLS handler.
 
 ```ruby
-obj.remote_pry_em('localhost', :auto, :tls => {:private_key_file => '/tmp/server.key'})
+obj.remote_pry_em('localhost', :auto, tls: { private_key_file: '/tmp/server.key' })
 ```
 See [EventMachine::Connection#start_tls](http://eventmachine.rubyforge.org/EventMachine/Connection.html#M000296) for the available options.
 
@@ -270,23 +270,23 @@ or any object that responds to #call.
 
 #### Auth with a Hash
 ```ruby
-auth_hash = {'caleb' => 'crane', 'john' => 'lowski'}
-obj       = {:encoding => __ENCODING__, :weather => :cloudy}
-EM.run{
-  obj.remote_pry_em('localhost', :auto, :tls => true, :auth => auth_hash)
-}
+auth_hash = { 'caleb' => 'crane', 'john' => 'lowski' }
+obj       = { encoding: __ENCODING__, weather: :cloudy }
+EM.run do
+  obj.remote_pry_em('localhost', :auto, tls: true, auth: auth_hash)
+end
 ```
 
 #### Auth with a lambda
 ```ruby
 require 'net/ldap'
 ldap_anon = lambda do |user, pass|
-  ldap = Net::LDAP.new :host => '10.0.0.1', :port => 389, :auth => {:method => :simple, :username => user, :password => pass}
+  ldap = Net::LDAP.new host: '10.0.0.1', port: 389, auth: { method: :simple, username: user, password: pass }
   ldap.bind
 end
-obj       = {:encoding => __ENCODING__, :weather => :cloudy}
+obj       = { encoding: __ENCODING__, weather: :cloudy }
 EM.run{
-  obj.remote_pry_em('localhost', :auto, :tls => true, :auth => ldap_anon)
+  obj.remote_pry_em('localhost', :auto, tls: true, auth: ldap_anon)
 }
 ```
 
@@ -301,9 +301,9 @@ class Authenticator
   end
 end
 
-obj       = {:encoding => __ENCODING__, :weather => :cloudy}
+obj       = { encoding: __ENCODING__, weather: :cloudy }
 EM.run{
-  obj.remote_pry_em('localhost', :auto, :tls => true, :auth => Authenticator.new(auth_hash))
+  obj.remote_pry_em('localhost', :auto, tls: true, auth: Authenticator.new(auth_hash))
 }
 ```
 
@@ -404,7 +404,7 @@ Available events are:
 
 ```ruby
 log         = ::Logger.new('/var/log/auth.pry.log')
-obj.new.remote_pry_em('0.0.0.0', :auto, :tls => true, :auth => auth_hash) do |pry|
+obj.new.remote_pry_em('0.0.0.0', :auto, tls: true, auth: auth_hash) do |pry|
   pry.auth_attempt do |user, ip|
     log.info("got an authentication attempt for #{user} from #{ip}")
   end
@@ -418,7 +418,7 @@ end
 ```
 
 ## Shell Commands
-If the pry-remote-em service is started with the ``:allow_shell_cmds =>
+If the pry-remote-em service is started with the ``allow_shell_cmds:
 true`` option set it will spawn sub processes for any command prefixed
 with a '.'.
 

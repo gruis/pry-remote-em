@@ -1,4 +1,4 @@
-require "pry-remote-em/client/generic"
+require 'pry-remote-em/client/generic'
 
 module PryRemoteEm
   module Client
@@ -22,7 +22,7 @@ module PryRemoteEm
       end
 
       def unbind
-        log.info("[pry-remote-em broker-client] broker connection unbound starting a new one")
+        log.info('[pry-remote-em broker-client] broker connection unbound starting a new one')
         # Give the existing broker a little time to release the port. Even if the
         # restart here fails the next time a server tries to register, a new client
         # will be created; when that fails Broker#restart will be called again.
