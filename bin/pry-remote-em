@@ -45,6 +45,10 @@ OptionParser.new do |opts|
     options[:show_details] = key
   end
 
+  opts.on('-i', '--ignore-localhost', 'filter out localhost urls from list') do
+    options[:ignore_localhost] = true
+  end
+
   opts.parse!(ARGV)
 end
 

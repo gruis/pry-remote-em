@@ -167,6 +167,7 @@ module PryRemoteEm
                   description[:target].pry = pry
                   pry.last_exception = description[:target].last_error if description[:target].any_errors?
                 end
+                description[:pry] = pry
               end
               Pry.start(description[:target], input: pre, output: pre)
             ensure
@@ -272,6 +273,12 @@ module PryRemoteEm
       return '' if get_peername.nil?
       @peer_port, @peer_ip = Socket.unpack_sockaddr_in(get_peername)
       @peer_port
+    end
+
+    def receive_clear_buffer
+      @opts[:pry].eval_string.replace('')
+      @last_prompt = @opts[:pry].select_prompt
+      send_last_prompt
     end
 
     def receive_raw(d)

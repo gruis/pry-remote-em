@@ -1,4 +1,5 @@
 1.0.0
+- **BREAKING CHANGE** Change `!` and `!!` messaging commands to `^` and `^^` to avoid confusing with Pry's built in `!` command and Ruby's `not` semantics
 - **BREAKING CHANGE** Change `PryRemoteEm::Server.run` method signature to hash-only form (`remote_pry_em` method's signature didn't changed)
 - **BREAKING CHANGE** Change `allow_shell_cmds` setting to `true` by default instead of `false`, because most of projects does not use $SAFE and any shell command can be run from Ruby code with `system` call or backticks, so this option is illusion in most cases
 - **BREAKING CHANGE** `PryRemoteEm::Server.run` returns whole server description instead of URL
@@ -20,6 +21,7 @@
 - Add support for `pry-coolline` (just install this gem to make it work)
 - Add stable 3 seconds timeout on broker reconnection, not random one
 - Add support for `details` option on server start and corresponding CLI option to display some usefull information about server instead or url in broker table (for example, health status, which can be updated on every heartbeat via details hash mutating)
+- Add option to ignore localhost urls in the list (useful when server binding to 0.0.0.0 in Docker, where localhost is useless)
 - Fix proxy, it didn't work at all
 - Fix interative shell commands, they didn't work at all
 - Fix `libc++abi.dylib: Pure virtual function called!` error on client disconnecting

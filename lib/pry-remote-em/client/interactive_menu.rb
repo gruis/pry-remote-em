@@ -42,7 +42,7 @@ module PryRemoteEm
           false
         end
 
-        while choice.nil?
+        while url.nil?
           if proxy
             question = "(q) to quit; (r) to refresh; (c) to connect without proxy\nproxy to: "
           else
@@ -73,11 +73,14 @@ module PryRemoteEm
 
           if choice
             id, server = *choice
-            urls = server['urls']
+            urls = filtered_urls_list_for_server(server)
             url = if urls.size > 1
               choose_url(urls)
-            else
+            elsif urls.size == 1
               urls.first
+            else
+              log.error("\033[31mno #{'non-localhost ' if opts[:ignore_localhost]}urls for this server\033[0m")
+              nil
             end
           else
             log.error("\033[31mserver not found\033[0m")
@@ -90,7 +93,7 @@ module PryRemoteEm
       def choose_url(urls)
         highline = HighLine.new
         url      = nil
-        length   = urls.map(&:size).max + 5
+        length   = urls.map(&:size).max
         border   = '-' * (length + 8)
         Kernel.puts border
         urls.each.with_index do |url, index|
@@ -148,7 +151,7 @@ module PryRemoteEm
 
       def second_column_for_server(server)
         column = case opts[:show_details]
-        when nil then server['urls']
+        when nil then filtered_urls_list_for_server(server)
         when '@' then server['details']
         else server['details'][opts[:show_details]]
         end
@@ -158,6 +161,10 @@ module PryRemoteEm
         when Hash then column.map { |key, value| "#{key}: #{value}" }
         else [column.to_s]
         end
+      end
+
+      def filtered_urls_list_for_server(server)
+        opts[:ignore_localhost] ? server['urls'].reject { |url| %w[localhost 127.0.0.1 ::1].include?(URI.parse(url).host) } : server['urls']
       end
     end # module::InteractiveMenu
   end # module::Client

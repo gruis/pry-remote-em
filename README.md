@@ -387,10 +387,10 @@ The standard Pry pager is supported through the included client.
 ## Messaging
 It is possible for each pry-remote-em service to host multiple
 simultaneous connections. You can send messages to other connections
-with the '!' and '!!' prefix.
+with the '^' and '^^' prefix.
 
-The '!' prefix will send the message to connections on the same object.
-the '!!' prefix will send the message to all connections in the current
+The '^' prefix will send the message to connections on the same object.
+the '^^' prefix will send the message to all connections in the current
 process.
 
 Message will not be displayed by the clients until the presses enter.

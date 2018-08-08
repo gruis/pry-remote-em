@@ -30,6 +30,8 @@ module PryRemoteEm
         receive_banner(*j['g'].split(' ', 3))
       elsif j['c']
         receive_completion(j['c'])
+      elsif j['cb']
+        receive_clear_buffer
       elsif j.include?('a')
         receive_auth(*Array(j['a']))
       elsif j['sd']
@@ -66,6 +68,7 @@ module PryRemoteEm
     def receive_shell_sig(sym); end
     def receive_shell_data(d); end
     def receive_completion(c); end
+    def receive_clear_buffer; end
     def receive_raw(r); end
     def receive_unknown(j); end
 
@@ -107,6 +110,9 @@ module PryRemoteEm
     end
     def send_completion(word)
       send_object({c: word})
+    end
+    def send_clear_buffer
+      send_object({cb: true})
     end
     def send_raw(d)
       send_object(d.is_a?(String) ? {d: d} : d)

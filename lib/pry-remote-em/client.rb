@@ -4,7 +4,7 @@ require 'pry-remote-em/client/keyboard'
 require 'pry-remote-em/client/generic'
 require 'pry-remote-em/client/interactive_menu'
 require 'pry'
-require 'pry-coolline' rescue require 'readline'
+#require 'pry-coolline' rescue require 'readline'
 
 module PryRemoteEm
   module Client
@@ -179,21 +179,24 @@ module PryRemoteEm
           begin
             @input.readline(prompt)
           rescue Interrupt
+            send_clear_buffer
             puts
-            retry
+            :ignore_me
           ensure
             Signal.trap(:INT, old_trap)
           end
         end
 
         callback  = proc do |l|
-          add_to_history(l) unless l == ''
+          next if l == :ignore_me
+
+          add_to_history(l) unless l.nil? || l.empty?
 
           if l.nil?
             readline
-          elsif '!!' == l[0..1]
+          elsif '^^' == l[0..1]
             send_msg_bcast(l[2..-1])
-          elsif '!' == l[0]
+          elsif '^' == l[0]
             send_msg(l[1..-1])
           elsif '.' == l[0]
             send_shell_cmd(l[1..-1])
