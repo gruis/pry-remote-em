@@ -1,6 +1,7 @@
 ﻿#!/usr/bin/env ruby
 
 require 'uri'
+require 'readline'
 require 'highline'
 require 'pry-remote-em/client'
 require 'optparse'
@@ -13,7 +14,7 @@ OptionParser.new do |opts|
   opts.on('-p', '--proxy NAME', 'proxy through the broker to the first pry remote em server matching NAME') do |name|
     options[:proxy] = name
   end
-  opts.on('-P', '--proxy_by_default', 'show servers table with proxy mode enabled by default (ignored on -c or -p)') do |name|
+  opts.on('-P', '--proxy-by-default', 'show servers table with proxy mode enabled by default (ignored on -c or -p)') do |name|
     options[:proxy_by_default] = true
   end
 
@@ -40,21 +41,25 @@ OptionParser.new do |opts|
   opts.on('--sp', '--sort-port', 'sort by port') { options[:sort] = :port }
   opts.on('--ss', '--sort-ssl', 'sort by ssl support') { options[:sort] = :ssl }
 
+  opts.on('-d', '--details KEY', "show value from server's details option by given key instead of url in table, use @ to show all details") do |key|
+    options[:show_details] = key
+  end
+
   opts.parse!(ARGV)
 end
 
 uri = if ARGV[0].nil? || ARGV[0].empty?
-  host = ENV['PRYEMBROKER'].nil? || ENV['PRYEMBROKER'].empty? ? PryRemoteEm::DEF_BROKERHOST : ENV['PRYEMBROKER']
-  port = ENV['PRYEMBROKERPORT'].nil? || ENV['PRYEMBROKERPORT'].empty? ? PryRemoteEm::DEF_BROKERPORT : ENV['PRYEMBROKERPORT']
+  host = ENV['PRYEMBROKER'].nil? || ENV['PRYEMBROKER'].empty? ? PryRemoteEm::DEFAULT_BROKER_HOST : ENV['PRYEMBROKER']
+  port = ENV['PRYEMBROKERPORT'].nil? || ENV['PRYEMBROKERPORT'].empty? ? PryRemoteEm::DEFAULT_BROKER_PORT : ENV['PRYEMBROKERPORT']
   "pryem://#{host}:#{port}"
 else
   ARGV[0]
 end
 uri = URI.parse(uri)
 unless %w(pryem pryems).include?(uri.scheme)
-  abort "only pryem URIs are currently supported\n usage: pryem[s]://#{PryRemoteEm::DEF_BROKERHOST}:#{PryRemoteEm::DEF_BROKERPORT}"
+  abort "only pryem URIs are currently supported\n usage: pryem[s]://#{PryRemoteEm::DEFAULT_BROKER_HOST}:#{PryRemoteEm::DEFAULT_BROKER_PORT}"
 end
-uri.port = PryRemoteEm::DEF_BROKERPORT unless uri.port
+uri.port = PryRemoteEm::DEFAULT_BROKER_PORT unless uri.port
 
 tried = 0
 auth_proc = proc do
@@ -63,7 +68,7 @@ auth_proc = proc do
   pass   = if !uri.password.nil? && tried <= 1
              uri.password
            elsif $stdin.tty?
-             HighLine.new.ask("#{user}'s password: ") { |q| q.echo = '*'}
+             HighLine.new.ask("#{user}'s password: ") { |q| q.echo = '*' }
            else
              raise 'password is required to authenticate'
            end
@@ -71,5 +76,6 @@ auth_proc = proc do
 end
 
 EM.run do
-  PryRemoteEm::Client.start(uri.host, uri.port, options.merge(:auth=>auth_proc, :tls=>uri.scheme=='pryems')) { |e| EM.stop }
+  client_options = options.merge(auth: auth_proc, tls: uri.scheme == 'pryems')
+  PryRemoteEm::Client.start(uri.host, uri.port, client_options) { EM.stop }
 end

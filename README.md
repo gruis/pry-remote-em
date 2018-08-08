@@ -97,9 +97,9 @@ while expose.length < 5
   expose.push(o) unless o.frozen?
 end
 
-EM.run {
+EM.run do
   expose.each {|o| o.remote_pry_em('localhost', :auto) }
-}
+end
 ```
 
     $ ruby test/auto-demo.rb
@@ -285,9 +285,9 @@ ldap_anon = lambda do |user, pass|
   ldap.bind
 end
 obj       = { encoding: __ENCODING__, weather: :cloudy }
-EM.run{
+EM.run do
   obj.remote_pry_em('localhost', :auto, tls: true, auth: ldap_anon)
-}
+end
 ```
 
 #### Auth with an object
@@ -302,9 +302,9 @@ class Authenticator
 end
 
 obj       = { encoding: __ENCODING__, weather: :cloudy }
-EM.run{
+EM.run do
   obj.remote_pry_em('localhost', :auto, tls: true, auth: Authenticator.new(auth_hash))
-}
+end
 ```
 
 
@@ -403,7 +403,7 @@ Available events are:
  - auth_ok      - called each time authentication succeeds
 
 ```ruby
-log         = ::Logger.new('/var/log/auth.pry.log')
+log = ::Logger.new('/var/log/auth.pry.log')
 obj.new.remote_pry_em('0.0.0.0', :auto, tls: true, auth: auth_hash) do |pry|
   pry.auth_attempt do |user, ip|
     log.info("got an authentication attempt for #{user} from #{ip}")
@@ -418,8 +418,8 @@ end
 ```
 
 ## Shell Commands
-If the pry-remote-em service is started with the ``allow_shell_cmds:
-true`` option set it will spawn sub processes for any command prefixed
+Unless the pry-remote-em service is started with the ``allow_shell_cmds:
+false`` option set it will spawn sub processes for any command prefixed
 with a '.'.
 
 ```
@@ -431,7 +431,7 @@ Interactive commands like ``vim`` will probably not behave
 appropriately.
 
 
-If the server was not started with the ``allow_shell_cmds`` option then
+If the server was started with the ``allow_shell_cmds: false`` option then
 all shell commands will be met with a rejection notice.
 
 ```
@@ -439,8 +439,7 @@ all shell commands will be met with a rejection notice.
 shell commands are not allowed by this server
 ```
 
-The server will also log whenever a user attempts to execute a shell
-command.
+The server will also log whenever a user attempts to execute a shell command.
 
 ```
 W, [2012-02-11T19:21:27.663941 #36471]  WARN -- : executing shell command 'ls -al' for  (127.0.0.1:63878)
@@ -450,18 +449,31 @@ W, [2012-02-11T19:21:27.663941 #36471]  WARN -- : executing shell command 'ls -a
 E, [2012-02-11T19:23:40.770380 #36471] ERROR -- : refused to execute shell command 'ls' for caleb (127.0.0.1:63891)
 ```
 
+# Environment variables
+
+* PRYEMNAME - pry server name to show in broker's list, default - target object's inspect
+* PRYEMURL - pry server URL to show in broker's list, default - pryem://#{server_host}:#{server_port}/
+* PRYEMHOST - host to bind pry server, default - 127.0.0.1
+* PRYEMPORT - port to bind pry server, default - 6463
+* PRYEMBROKER - host to bind pry broker, default - 127.0.0.1
+* PRYEMBROKERPORT - port to bind pry broker, default - 6462
+* PRYEMREMOTEBROKER - start server without starting broker, default - broker starting with server
+* PRYEMNOPAGER - disable paging on long output, default - pager enabled
+* PRYEMNEGOTIMEOUT - connection negotiation timeout in seconds, default - 15
+* PRYEMHBSEND - server to broker heartbeat interval in seconds, default - 15
+* PRYEMHBCHECK - heartbeat check on broker interval in seconds, default - 20
+* PRYEMBROKERTIMEOUT - reconnect to broker timeout in seconds, default - 3
+* PRYEMSANDBOXERRORS - number of errors to store in sandbox, default - 100
+
 # Missing Features
 
-  - HTTP Transport [ticket](https://github.com/simulacre/pry-remote-em/issues/12)
-  - Ssh key based authentication
-
+  - HTTP Transport ([ticket](https://github.com/simulacre/pry-remote-em/issues/12))
+  - SSH key based authentication
+  - Looking for connected users and their history
 
 # Issues
 
  Please post any bug reports or feature requests on [Github](https://github.com/simulacre/pry-remote-em/issues)
-
-
-
 
 # Copyright
 

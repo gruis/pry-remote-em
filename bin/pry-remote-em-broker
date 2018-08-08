@@ -1,0 +1,28 @@
+#!/usr/bin/env ruby
+
+require 'pry-remote-em/broker'
+require 'optparse'
+
+options = { tls: false }
+OptionParser.new do |opts|
+  opts.on('-h', '--host HOST', 'host to bind broker server (same as PRYEMBROKER variable, default: "127.0.0.1")') do |host|
+    options[:host] = host
+  end
+
+  opts.on('-p', '--port PORT', 'port to bind broker server (same as PRYEMBROKERPORT variable, default: 6462)') do |port|
+    options[:port] = port
+  end
+
+  opts.on('-s', '--tls', 'use TLS for broker (default: false)') do
+    options[:tls] = true
+  end
+
+  opts.parse!(ARGV)
+end
+
+
+EM.run do
+  trap(:INT) { EM.stop }
+
+  PryRemoteEm::Broker.run options[:host], options[:port], tls: options[:tls], raise_if_port_in_use: true
+end

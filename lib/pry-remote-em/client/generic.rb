@@ -39,8 +39,9 @@ module PryRemoteEm
           # TODO use the args used to create this connection
           log.info('[pry-remote-em] client connected')
         end
-        @nego_timer = EM::Timer.new(PryRemoteEm::NEGOTIMER) do
-          fail("[pry-remote-em] server didn't finish negotiation within #{PryRemoteEm::NEGOTIMER} seconds; terminating")
+        timeout = ENV['PRYEMNEGOTIMEOUT'].nil? || ENV['PRYEMNEGOTIMEOUT'].empty? ? NEGOTIATION_TIMEOUT : ENV['PRYEMNEGOTIMEOUT']
+        @nego_timer = EM::Timer.new(timeout) do
+          fail("[pry-remote-em] server didn't finish negotiation within #{timeout} seconds; terminating")
         end
       end
 

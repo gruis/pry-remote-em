@@ -1,3 +1,49 @@
+1.0.0
+- **BREAKING CHANGE** Change `PryRemoteEm::Server.run` method signature to hash-only form (`remote_pry_em` method's signature didn't changed)
+- **BREAKING CHANGE** Change `allow_shell_cmds` setting to `true` by default instead of `false`, because most of projects does not use $SAFE and any shell command can be run from Ruby code with `system` call or backticks, so this option is illusion in most cases
+- **BREAKING CHANGE** `PryRemoteEm::Server.run` returns whole server description instead of URL
+- **BREAKING CHANGE** Rename public constants to avoid confusing
+- Add `PryRemoteEm::Sandbox` as target by default with `p`/`puts`/`print` handlers pointing to remote client
+- Add `PryRemoteEm::Sandbox.add_error(exception, binding)` to store errors with it's bindings for easy access from sandboxed console like `cd last_error.binding` (also integrated with `wtf?` command)
+- Add proxy-by-default setting to CLI
+- Add possibility to use environment variables on CLI connection
+- Add more environment variables to control server without code changing (described in readme)
+- Add possibility to set external url for server (to use lib with NAT or Docker) using `PRYEMURL` or `external_url` option
+- Add ability to use custom server name using `PRYEMNAME` environment variable or `name` option (and displaying it in the prompt)
+- Add ability to start server without starting broker using `PRYEMREMOTEBROKER` environment variable or `remote_broker` option
+- Add `pry-remote-em-broker` binary to start broker without starting server
+- Add `Object#pry_remote_em` alias to `Object#remote_pry_em` to avoid common confusing
+- Add support for several URIs per one server (when binding to 0.0.0.0)
+- Add support for empty environment variables and nil arguments on server start
+- Add support for options hash as first argument instead of third in `Object#remote_pry_em`
+- Add local history loading on session start
+- Add support for `pry-coolline` (just install this gem to make it work)
+- Add stable 3 seconds timeout on broker reconnection, not random one
+- Add support for `details` option on server start and corresponding CLI option to display some usefull information about server instead or url in broker table (for example, health status, which can be updated on every heartbeat via details hash mutating)
+- Fix proxy, it didn't work at all
+- Fix interative shell commands, they didn't work at all
+- Fix `libc++abi.dylib: Pure virtual function called!` error on client disconnecting
+- Fix console crash on pager quit
+- Fix console crash on Ctrl+C (now it's clears the buffer like in native Pry)
+- Fix missing requires when using broker without server
+- Fix port access check when using environment variables
+- Fix IPv6 localhost
+- Fix strange effects when registering in broker from Docker (now broker use UUID as a key instead of URI)
+- Fix message `broker connection unbound starting a new one` on EventMachine stopping
+- Fix unregistering in broker by timeout only, now servers unregister instantly after closing connection
+- Fix interative shell commands echo printing
+- Fix unknown shell command problem (now valid `command not found` message is printing)
+- Fix behaviour on empty input, now it's exactly like as in native Pry
+- Fix saving empty strings in history
+- Remove useless return values from inner methods
+- Use MessagePack protocol instead of JSON to avoid strange buffer bugs
+- Add ruby-termios to runtime dependencies to avoid confusing `unable to load keyboard dependencies` message
+- Bump dependencies versions
+- Correct README for default broker port
+- Use single quotes by default
+- Use Ruby 1.9 hash syntax by default
+- Use semantic versioning, starting at 1.0.0 (since we're using it in production for a long time already)
+
 0.7.5
 - [#42](https://github.com/simulacre/pry-remote-em/pull/42) - Use bytesize String method instead of length in protocol. [distorhead](https://github.com/distorhead)
 

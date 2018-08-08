@@ -1,4 +1,4 @@
-﻿begin
+begin
   require 'openssl'
 rescue LoadError
   warn 'OpenSSL support is not available'
@@ -11,21 +11,29 @@ require 'fiber'
 require 'uri'
 
 module PryRemoteEm
-  DEFHOST         = '127.0.0.1'
-  DEFPORT         = 6463
-  DEF_BROKERPORT  = 6462
-  DEF_BROKERHOST  = '127.0.0.1'
-  NEGOTIMER       = 15
+  DEFAULT_SERVER_HOST = '127.0.0.1'
+  DEFAULT_SERVER_PORT = 6463
+  DEFAULT_BROKER_HOST = '127.0.0.1'
+  DEFAULT_BROKER_PORT = 6462
+
+  NEGOTIATION_TIMEOUT         = 15
+  HEARTBEAT_SEND_INTERVAL     = 15
+  HEARTBEAT_CHECK_INTERVAL    = 20
+  RECONNECT_TO_BROKER_TIMEOUT = 3
+
+  MAXIMUM_ERRORS_IN_SANDBOX = 100
 end
 
 
 class Object
-  def remote_pry_em(host = nil, port = nil, opts = {tls: false}, &blk)
-    host ||= ENV['PRYEMHOST'].nil? || ENV['PRYEMHOST'].empty? ? PryRemoteEm::DEFHOST : ENV['PRYEMHOST']
-    port ||= ENV['PRYEMPORT'].nil? || ENV['PRYEMPORT'].empty? ? PryRemoteEm::DEFPORT : ENV['PRYEMPORT']
-    opts = {target: self}.merge(opts)
-    PryRemoteEm::Server.run(opts[:target], host, port, opts, &blk)
+  def remote_pry_em(host = nil, port = nil, options = {}, &block)
+    host, options = nil, host if host.kind_of?(Hash) # Support for options hash as first argument instead of third
+
+    options = { target: self, host: host, port: port }.merge(options)
+    PryRemoteEm::Server.run(options, &block)
   end
+
+  alias pry_remote_em remote_pry_em # source of common confusing
 end
 
 

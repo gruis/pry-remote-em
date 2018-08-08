@@ -1,4 +1,5 @@
 require 'pry-remote-em/client/generic'
+
 module PryRemoteEm
   module Client
     module Proxy

@@ -8,12 +8,13 @@ Gem::Specification.new do |s|
   s.homepage      = 'http://github.com/simulacre/pry-remote-em'
   s.email         = 'pry-remote-em@simulacre.org'
   s.authors       = ['Caleb Crane']
-  s.files         = Dir["lib/**/*.rb", "bin/*", "*.md"]
-  s.require_paths = ["lib"]
-  s.executables   = ['pry-remote-em']
+  s.files         = Dir['lib/**/*.rb', 'bin/*', '*.md']
+  s.require_paths = ['lib']
+  s.executables   = ['pry-remote-em', 'pry-remote-em-broker']
 
   s.add_dependency 'eventmachine'
-  s.add_dependency 'pry', '~> 0.9'
-  s.add_development_dependency 'ruby-termios', '~> 0.9.6'
-  s.add_dependency 'highline'
+  s.add_dependency 'msgpack'
+  s.add_dependency 'pry', '~> 0.11'
+  s.add_dependency 'ruby-termios', '~> 1.0'
+  s.add_dependency 'highline', '~> 2.0'
 end

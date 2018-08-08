@@ -1,4 +1,4 @@
-﻿require 'logger'
+require 'logger'
 require 'socket'
 require 'pry-remote-em'
 require 'pry-remote-em/client/broker'
@@ -10,34 +10,20 @@ module PryRemoteEm
       attr_reader :listening, :host, :port
       alias :listening? :listening
 
-      def run(host = nil, port = nil, opts = { tls: false })
-        host ||= ENV['PRYEMBROKER'].nil? || ENV['PRYEMBROKER'].empty? ? DEF_BROKERHOST : ENV['PRYEMBROKER']
-        port ||= ENV['PRYEMBROKERPORT'].nil? || ENV['PRYEMBROKERPORT'].empty? ? DEF_BROKERPORT : ENV['PRYEMBROKERPORT']
+      def run(host = nil, port = nil, opts = {})
+        host ||= ENV['PRYEMBROKER'].nil? || ENV['PRYEMBROKER'].empty? ? DEFAULT_BROKER_HOST : ENV['PRYEMBROKER']
+        port ||= ENV['PRYEMBROKERPORT'].nil? || ENV['PRYEMBROKERPORT'].empty? ? DEFAULT_BROKER_PORT : ENV['PRYEMBROKERPORT']
         port = port.to_i if port.kind_of?(String)
         raise "root permission required for port below 1024 (#{port})" if port < 1024 && Process.euid != 0
-        @host      = host
-        @port      = port
+        @host = host
+        @port = port
+        opts = opts.dup
         # Brokers cannot use SSL directly. If they do then when a proxy request to an SSL server is received
         # the client and server will not be able to negotiate a SSL session. The proxied traffic can be SSL
         # encrypted, but the SSL session will be between the client and the server.
-        opts       = opts.dup
         opts[:tls] = false
-        @opts      = opts
-        unless ENV['PRYEMREMOTEBROKER'] || @opts[:remote_broker]
-          begin
-            EM.start_server(host, port, PryRemoteEm::Broker, opts) do |broker|
-            end
-            log.info("[pry-remote-em broker] listening on #{opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}")
-            @listening = true
-          rescue => e
-            # EM 1.0.0.beta4's message tells us the port is in use; 0.12.10 just says, 'no acceptor'
-            if (e.message.include?('port is in use') || e.message.include?('no acceptor'))
-              # [pry-remote-em broker] a broker is already listening on #{host}:#{port}
-            else
-              raise e
-            end
-          end
-        end
+        @opts = opts
+        start_server(host, port, opts) unless @listening || ENV['PRYEMREMOTEBROKER'] || @opts[:remote_broker]
         client { |c| yield self } if block_given?
       end
 
@@ -46,9 +32,9 @@ module PryRemoteEm
         @waiting   = nil
         @client    = nil
         run(@host, @port, @opts) do
-          PryRemoteEm.servers.each do |url, (sig, name)|
-            next unless EM.get_sockname(sig)
-            register(url, name)
+          PryRemoteEm.servers.each do |id, description|
+            next unless EM.get_sockname(description[:server])
+            register(id: description[:id], urls: description[:urls], name: description[:name], details: description[:details])
           end
         end
       end
@@ -66,31 +52,38 @@ module PryRemoteEm
         @servers ||= {}
       end
 
-      def register(url, name = 'unknown')
-        expand_url(url).each do |u|
-          client { |c| c.send_register_server(u, name) }
-        end
+      def register(description)
+        client { |c| c.send_register_server(description[:id], description[:urls], description[:name], description[:details]) }
       end
 
-      def unregister(url)
-        expand_url(url).each do |u|
-          client { |c| c.send_unregister_server(u) }
-        end
+      def unregister(id)
+        client { |c| c.send_unregister_server(id) }
       end
 
-      def expand_url(url)
-        return Array(url) if (u = URI.parse(url)).host != '0.0.0.0'
-        Socket.ip_address_list.select { |a| a.ipv4? }
-         .map(&:ip_address).map{|i| u.clone.tap{|mu| mu.host = i } }
+      def register_server(id, description)
+        servers[id] = description
+        watch_heartbeats(id)
+        log.info("[pry-remote-em broker] registered #{id} #{description.inspect}")
       end
 
-      def watch_heartbeats(url)
-        return if timers[url]
-        timers[url] = EM::PeriodicTimer.new(20) do
-          if !hbeats[url] || (Time.new - hbeats[url]) > 20
-            servers.delete(url)
-            timers[url].cancel
-            timers.delete(url)
+      def update_server(server, description)
+        server.update(urls: description[:urls], name: description[:name])
+        server[:details].update(description[:details])
+      end
+
+      def unregister_server(id)
+        server = servers.delete(id) or return
+        log.warn("[pry-remote-em broker] unregister #{id} #{server.inspect}")
+        timer = timers.delete(id)
+        timer.cancel if timer
+        hbeats.delete(id)
+      end
+
+      def watch_heartbeats(id)
+        interval = ENV['PRYEMHBCHECK'].nil? || ENV['PRYEMHBCHECK'].empty? ? HEARTBEAT_CHECK_INTERVAL : ENV['PRYEMHBCHECK']
+        timers[id] ||= EM::PeriodicTimer.new(interval) do
+          if !hbeats[id] || (Time.new - hbeats[id]) > 20
+            unregister_server(id)
           end
         end
       end
@@ -107,7 +100,21 @@ module PryRemoteEm
         @connected
       end
 
-    private
+      private
+
+      def start_server(host, port, opts)
+        EM.start_server(host, port, PryRemoteEm::Broker, opts)
+        log.info("[pry-remote-em broker] listening on #{opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}")
+        @listening = true
+      rescue => error
+        # EM 1.0.0.beta4's message tells us the port is in use; 0.12.10 just says, 'no acceptor'
+        if (error.message.include?('port is in use') || error.message.include?('no acceptor'))
+          # [pry-remote-em broker] a broker is already listening on #{host}:#{port}
+          raise if opts[:raise_if_port_in_use]
+        else
+          raise
+        end
+      end
 
       def client(&blk)
         raise ArgumentError.new('A block is required') unless block_given?
@@ -123,7 +130,7 @@ module PryRemoteEm
           EM.connect(host, port, Client::Broker, @opts) do |client|
             client.errback { |e| raise(e || 'broker client error') }
             client.callback do
-              @client    = client
+              @client = client
               while (w = @waiting.shift)
                 w.call(client)
               end
@@ -135,25 +142,25 @@ module PryRemoteEm
 
     include Proto
 
-    def receive_server_list
+    def receive_server_reload_list
       send_server_list(Broker.servers)
     end
 
-    def receive_register_server(url, name)
-      url = URI.parse(url)
-      url.hostname = peer_ip if ['0.0.0.0', 'localhost', '127.0.0.1', '::1'].include?(url.hostname)
-      log.info("[pry-remote-em broker] registered #{url} - #{name.inspect}") unless Broker.servers[url] == name
-      Broker.servers[url] = name
-      Broker.hbeats[url]  = Time.new
-      Broker.watch_heartbeats(url)
-      name
+    def receive_register_server(id, urls, name, details)
+      @ids.push(id)
+      description = { urls: urls, name: name, details: details }
+      Broker.hbeats[id] = Time.new
+      server = Broker.servers[id]
+      if server
+        Broker.update_server(server, description)
+      else
+        Broker.register_server(id, description)
+      end
     end
 
-    def receive_unregister_server(url)
-      url = URI.parse(url)
-      url.hostname = peer_ip if ['0.0.0.0', 'localhost', '127.0.0.1', '::1'].include?(url.hostname)
-      log.warn("[pry-remote-em broker] unregister #{url}")
-      Broker.servers.delete(url)
+    def receive_unregister_server(id)
+      server = Broker.servers[id]
+      Broker.unregister_server(id) if server
     end
 
     def receive_proxy_connection(url)
@@ -162,8 +169,9 @@ module PryRemoteEm
       EM.connect(url.host, url.port, Client::Proxy, self)
     end
 
-    def initialize(opts = { tls: false }, &blk)
-      @opts   = opts
+    def initialize(opts = {}, &blk)
+      @opts = opts
+      @ids = []
     end
 
     def log
@@ -203,5 +211,10 @@ module PryRemoteEm
       send_server_list(Broker.servers)
     end
 
+    def unbind
+      @ids.each do |id|
+        Broker.unregister_server(id)
+      end
+    end
   end # module::Broker
 end # module::PryRemoteEm
