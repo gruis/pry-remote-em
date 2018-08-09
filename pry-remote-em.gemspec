@@ -11,10 +11,11 @@ Gem::Specification.new do |s|
   s.files         = Dir['lib/**/*.rb', 'bin/*', '*.md']
   s.require_paths = ['lib']
   s.executables   = ['pry-remote-em', 'pry-remote-em-broker']
+  s.license       = 'Nonstandard'
 
-  s.add_dependency 'eventmachine'
-  s.add_dependency 'msgpack'
-  s.add_dependency 'pry', '~> 0.11'
-  s.add_dependency 'ruby-termios', '~> 1.0'
-  s.add_dependency 'highline', '~> 2.0'
+  s.add_runtime_dependency 'eventmachine', '~> 1'
+  s.add_runtime_dependency 'msgpack', '~> 1'
+  s.add_runtime_dependency 'pry', '~> 0.11'
+  s.add_runtime_dependency 'ruby-termios', '~> 1.0'
+  s.add_runtime_dependency 'highline', '~> 2.0'
 end

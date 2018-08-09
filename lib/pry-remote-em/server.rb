@@ -180,8 +180,7 @@ module PryRemoteEm
           end.resume
         end
       rescue => error
-        # EM 1.0.0.beta4's message tells us the port is in use; 0.12.10 just says, 'no acceptor'
-        if (error.message.include?('port is in use') || error.message.include?('no acceptor')) && description[:tries] > 1
+        if error.message.include?('port is in use') && description[:tries] > 1
           description[:tries] -= 1
           description[:port] += 1
           retry

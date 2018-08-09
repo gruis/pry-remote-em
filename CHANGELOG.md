@@ -7,6 +7,7 @@
 * **BREAKING CHANGE** Change `allow_shell_cmds` setting to `true` by default instead of `false`, because most of projects does not use $SAFE and any shell command can be run from Ruby code with `system` call or backticks, so this option is illusion in most cases
 * **BREAKING CHANGE** `PryRemoteEm::Server.run` returns whole server description instead of URL
 * **BREAKING CHANGE** Rename public constants to avoid confusing
+* **BREAKING CHANGE** Drop support for eventmachine prior to 1.0.0.beta4
 
 ## Features
 

@@ -64,8 +64,6 @@ module PryRemoteEm
       else
         @unbound = true
         log.info('[pry-remote-em] session terminated')
-        # prior to 1.0.0.b4 error? returns true here even when it's not
-        return succeed if Gem.loaded_specs['eventmachine'].version < Gem::Version.new('1.0.0.beta4')
         error? ? fail : succeed
       end
     end
@@ -200,11 +198,7 @@ module PryRemoteEm
             send_msg(l[1..-1])
           elsif '.' == l[0]
             send_shell_cmd(l[1..-1])
-            if Gem.loaded_specs['eventmachine'].version < Gem::Version.new('1.0.0.beta4')
-              Kernel.puts "\033[1minteractive shell commands are not well supported when running on EventMachine prior to 1.0.0.beta4\033[0m"
-            else
-              @keyboard = EM.open_keyboard(Keyboard, self)
-            end
+            @keyboard = EM.open_keyboard(Keyboard, self)
           elsif 'reset' == l.strip
             # TODO work with 'bundle exec pry-remote-em ...'
             # TODO work with 'ruby -I lib bin/pry-remote-em ...'

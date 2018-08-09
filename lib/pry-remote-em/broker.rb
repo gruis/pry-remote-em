@@ -107,10 +107,12 @@ module PryRemoteEm
         log.info("[pry-remote-em broker] listening on #{opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}")
         @listening = true
       rescue => error
-        # EM 1.0.0.beta4's message tells us the port is in use; 0.12.10 just says, 'no acceptor'
-        if (error.message.include?('port is in use') || error.message.include?('no acceptor'))
-          # [pry-remote-em broker] a broker is already listening on #{host}:#{port}
-          raise if opts[:raise_if_port_in_use]
+        if error.message.include?('port is in use')
+          if opts[:raise_if_port_in_use]
+            raise
+          else
+            # A broker is already listening on this port, we can do nothing
+          end
         else
           raise
         end
