@@ -8,6 +8,7 @@
 * **BREAKING CHANGE** `PryRemoteEm::Server.run` returns whole server description instead of URL
 * **BREAKING CHANGE** Rename public constants to avoid confusing
 * **BREAKING CHANGE** Drop support for eventmachine prior to 1.0.0.beta4
+* **BREAKING CHANGE** Inner transport protocol was changed, so broker, client and server of version 1.0.0 cannot work with brokers, clients and servers of previous versions
 
 ## Features
 
