@@ -384,6 +384,278 @@ The standard Pry pager is supported through the included client.
 :
 ```
 
+## Sandbox
+
+The `PryRemoteEm::Sandbox` class introduced to help in case when you
+do not mush interested in console's executing context but just want to
+access a remote server's "control panel" with usefull methods and
+without worrying about breaking some object's internal state.
+
+To use sandbox just run `PryRemoteEm::Server.run` instead of
+`binding.remote_pry_em`. You can include any modules with your
+application's business logic in this class to get real "control panel"
+for your program.
+
+The simple example:
+
+```ruby
+# Microservice A, a.rb
+
+require 'bundler'
+Bundler.require
+
+DB = Sequel.sqlite
+
+module ControlPanel
+  def u(id)
+    DB[:users].find(id)
+  end
+
+  def ban(id)
+    DB[:users].where(id: id).update u(id).merge('status' => 'banned')
+  end
+end
+
+PryRemoteEm::Sandbox.include ControlPanel
+
+EventMachine.run do
+  trap(:INT) { EventMachine.stop }
+
+  PryRemoteEm::Server.run name: 'Microservice A', port: :auto, remote_broker: true, details: { environment: 'staging' }
+end
+```
+
+```ruby
+# Microservice B, b.rb
+
+require 'bundler'
+Bundler.require
+
+module Transport
+  # ...
+end
+
+module ControlPanel
+  def ping(microservice)
+    Transport.send_ping(microservice)
+  end
+end
+
+PryRemoteEm::Sandbox.include ControlPanel
+
+EventMachine.run do
+  trap(:INT) { EventMachine.stop }
+
+  PryRemoteEm::Server.run name: 'Microservice B', port: :auto, remote_broker: true, details: { environment: 'staging' }
+end
+```
+
+Then, in shell:
+
+```shell
+$ pry-remote-em-broker > /dev/null &
+$ ruby a.rb > /dev/null &
+$ ruby b.rb > /dev/null &
+$
+$ pry-remote-em -P --sn -d environment
+[pry-remote-em] client connected to pryem://127.0.0.1:6462/
+[pry-remote-em] remote is PryRemoteEm 1.0.0 pryem
+------------------------------------------
+|     |  name            |  environment  |
+------------------------------------------
+|  1  |  Microservice A  |  staging      |
+|  2  |  Microservice B  |  staging      |
+------------------------------------------
+(q) to quit; (r) to refresh; (c) to connect without proxy
+proxy to: 1
+[pry-remote-em] remote is PryRemoteEm 1.0.0 pryem
+[1] Microservice A (sandbox)> u 13
+=> {"id"=>13, "violations"=>4, "status"=>"active"}
+[2] Microservice A (sandbox)> @my_bad_user = _
+=> {"id"=>13, "violations"=>4, "status"=>"active"}
+[3] Microservice A (sandbox)> ban 13 # You can use control panel to work with some business cases
+=> 1
+[4] Microservice A (sandbox)> exit
+[pry-remote-em] session terminated
+$
+$ pry-remote-em pryem://127.0.0.1:6463
+[pry-remote-em] remote is PryRemoteEm 1.0.0 pryem
+[1] Microservice A (sandbox)> @my_bad_user
+=> {"id"=>13, "violations"=>4, "status"=>"banned"}
+[2] Microservice A (sandbox)> exit
+[pry-remote-em] session terminated
+$
+$ pry-remote-em pryem://127.0.0.1:6464
+[pry-remote-em] remote is PryRemoteEm 1.0.0 pryem
+[1] Microservice A (sandbox)> ping :A # Or you can use it to check infrastructure and perform custom communications between servers
+=> "pong"
+[2] Microservice A (sandbox)> exit
+[pry-remote-em] session terminated
+```
+
+In sandbox you have those possibilities "out of the box":
+
+* `puts`, `putc`, `print`, `p` and `pp` methods almost as you expected.
+In other contexts they will use server's STDOUT, but in sandbox they
+will send all the data to client. Remember, you'll lost those methods
+out of the sandbox context:
+
+```shell
+$ pry-remote-em pryem://127.0.0.1:6463
+[pry-remote-em] remote is PryRemoteEm 1.0.0 pryem
+[1] Demo Server (sandbox)> puts 'Hello World' # It works!
+Hello World
+=> nil
+[2] Demo Server (sandbox)> Object.new.instance_eval { puts "Hello World" } # Do not work
+=> nil
+[3] Demo Server (sandbox)> cd Object.new
+[4] Demo Server (#<Object>):1> puts "Hello World" # Do not work
+=> nil
+```
+
+* `any_errors?`, `last_error` and `last_errors` methods in sandbox
+context with `PryRemoteEm::Sandbox.add_error` method from your code
+to help you store all the bugs and debug it in the bug's execution
+context. It also integrated with `wtf?` command. For example:
+
+```ruby
+require 'bundler'
+Bundler.require
+
+def safe_handler(source_binding)
+  yield
+rescue => exception
+  PryRemoteEm::Sandbox.add_error(exception, source_binding)
+  raise
+end
+
+def danger_mathod(a, b)
+  safe_handler(binding) do
+    a / b
+  end
+end
+
+EventMachine.run do
+  trap(:INT) { EventMachine.stop }
+
+  EventMachine.error_handler do |exception|
+    PryRemoteEm::Sandbox.add_error(exception)
+  end
+
+  EventMachine.add_timer(5) { danger_mathod 1, 0 }
+
+  PryRemoteEm::Server.run name: 'Demo Server', details: { hostname: 'local' }
+end
+```
+
+Then, in shell:
+
+```shell
+$ pry-remote-em -P --sn -d hostname
+[pry-remote-em] client connected to pryem://127.0.0.1:6462/
+[pry-remote-em] remote is PryRemoteEm 1.0.0 pryem
+------------------------------------
+|     |  name         |  hostname  |
+------------------------------------
+|  1  |  Demo Server  |  local     |
+------------------------------------
+(q) to quit; (r) to refresh; (c) to connect without proxy
+proxy to: 1
+[pry-remote-em] remote is PryRemoteEm 1.0.0 pryem
+[1] Demo Server (sandbox)> any_errors?
+=> true
+[2] Demo Server (sandbox)> last_error
+=> #<ZeroDivisionError: divided by 0>
+[3] Demo Server (sandbox)> wtf?
+Exception: ZeroDivisionError: divided by 0
+--
+0: demo_server.rb:13:in `/'
+1: demo_server.rb:13:in `block in danger_mathod'
+2: demo_server.rb:5:in `safe_handler'
+3: demo_server.rb:12:in `danger_mathod'
+4: demo_server.rb:24:in `block (2 levels) in <main>'
+5: /usr/local/lib/ruby/gems/2.4.0/gems/eventmachine-1.2.7/lib/eventmachine.rb:195:in `run_machine'
+6: /usr/local/lib/ruby/gems/2.4.0/gems/eventmachine-1.2.7/lib/eventmachine.rb:195:in `run'
+7: demo_server.rb:17:in `<main>'
+[4] Demo Server (sandbox)> cd last_error.source_binding
+[5] Demo Server (main):1> whereami
+
+From: /Users/user/Projects/demo/demo_server.rb @ line 12 Object#danger_mathod:
+
+    11: def danger_mathod(a, b)
+ => 12:   safe_handler(binding) do
+    13:     a / b
+    14:   end
+    15: end
+
+[6] Demo Server (main):1> ls
+self.methods: inspect  to_s
+locals: _  __  _dir_  _ex_  _file_  _in_  _out_  _pry_  a  b
+[7] Demo Server (main):1> a
+=> 1
+[8] Demo Server (main):1> b
+=> 0
+```
+
+* `server` method to access PryRemoteEm::Server description object.
+For example, it can be useful for changing `details`:
+
+```ruby
+require 'bundler'
+Bundler.require
+
+module HealthChecker
+  # ...
+end
+
+EventMachine.run do
+  trap(:INT) { EventMachine.stop }
+
+  PryRemoteEm::Server.run name: 'Demo Server', heartbeat_interval: 1, details: { hand_check: false }
+end
+```
+
+Then, in shell:
+
+```shell
+$ pry-remote-em -P --sn -d hand_check
+[pry-remote-em] client connected to pryem://127.0.0.1:6462/
+[pry-remote-em] remote is PryRemoteEm 1.0.0 pryem
+--------------------------------------
+|     |  name         |  hand_check  |
+--------------------------------------
+|  1  |  Demo Server  |  true        |
+|  2  |  Demo Server  |  true        |
+|  3  |  Demo Server  |  false       |
+|  4  |  Demo Server  |  false       |
+|  5  |  Demo Server  |  false       |
+--------------------------------------
+(q) to quit; (r) to refresh; (c) to connect without proxy
+proxy to: 3
+[1] Demo Server (sandbox)> HealthChecker.all_ok?
+=> true
+[2] Demo Server (sandbox)> server[:details][:hand_check] = true
+=> true
+[3] Demo Server (sandbox)> exit
+[pry-remote-em] session terminated
+$
+$ sleep 1
+$ pry-remote-em -P --sn -d hand_check
+[pry-remote-em] client connected to pryem://127.0.0.1:6462/
+[pry-remote-em] remote is PryRemoteEm 1.0.0 pryem
+--------------------------------------
+|     |  name         |  hand_check  |
+--------------------------------------
+|  1  |  Demo Server  |  true        |
+|  2  |  Demo Server  |  true        |
+|  3  |  Demo Server  |  true        |
+|  4  |  Demo Server  |  false       |
+|  5  |  Demo Server  |  false       |
+--------------------------------------
+(q) to quit; (r) to refresh; (c) to connect without proxy
+proxy to:
+```
+
 ## Messaging
 It is possible for each pry-remote-em service to host multiple
 simultaneous connections. You can send messages to other connections

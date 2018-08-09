@@ -83,6 +83,7 @@ module PryRemoteEm
       # @option options [Integer, Symbol] :port_fail set to :auto to search for available port in range from given port to port + 100, or pass explicit integer to use instaed of 100, default - 1
       # @option options [String] :name Server name to show in broker list, default - object's inspect (same as PRYEMNAME environment variable)
       # @option options [String] :external_url External URL to connect behind firewall, NAT, Docket etc. in form "pryem://my.host:6463", default - use given host and port and expand it to all interfaces in case of 0.0.0.0 (same as PRYEMURL environment variable)
+      # @option options [Integer] :heartbeat_interval Interval to send heartbeats and updated details to broker, default - 15 (same as PRYEMHBSEND environment variable)
       # @option options [Boolean] :remote_broker Connect to remote broker instead of starting local one, default - false (same as PRYEMREMOTEBROKER environment variable)
       # @option options [String] :broker_host Broker host to connect to, default - localhost
       # @option options [String] :broker_port Broker port to connect to, default - 6462
@@ -98,6 +99,7 @@ module PryRemoteEm
         description[:external_url] ||= ENV['PRYEMURL'] || "#{description[:tls] ? 'pryems' : 'pryem'}://#{description[:host]}:#{description[:port]}/"
         description[:details] ||= {}
         description[:allow_shell_cmds] = true if description[:allow_shell_cmds].nil?
+        description[:heartbeat_interval] ||= ENV['PRYEMHBSEND'].nil? || ENV['PRYEMHBSEND'].empty? ? HEARTBEAT_SEND_INTERVAL : ENV['PRYEMHBSEND']
         description[:urls] = expand_url(description[:external_url])
         description[:server] = start_server(description, &block)
         description[:logger].info("[pry-remote-em] listening for connections on #{description[:external_url]}")
@@ -165,6 +167,7 @@ module PryRemoteEm
                 pry.config.prompt_name = description[:name] + ' ' if description[:custom_name]
                 if description[:target].is_a? PryRemoteEm::Sandbox
                   description[:target].pry = pry
+                  description[:target].server = description
                   pry.last_exception = description[:target].last_error if description[:target].any_errors?
                 end
                 description[:pry] = pry
@@ -191,8 +194,8 @@ module PryRemoteEm
         broker_options = { tls: description[:tls], remote_broker: description[:remote_broker], logger: description[:logger] }
         Broker.run(description[:broker_host], description[:broker_port], broker_options) do |broker|
           broker.register(broker_description)
-          interval = ENV['PRYEMHBSEND'].nil? || ENV['PRYEMHBSEND'].empty? ? HEARTBEAT_SEND_INTERVAL : ENV['PRYEMHBSEND']
-          rereg = EM::PeriodicTimer.new(interval) do
+
+          rereg = EM::PeriodicTimer.new(description[:heartbeat_interval]) do
             EM.get_sockname(description[:server]) ? broker.register(broker_description) : nil #rereg.cancel
           end
         end

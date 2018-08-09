@@ -5,9 +5,9 @@ Gem::Specification.new do |s|
   s.version       = PryRemoteEm::VERSION
   s.summary       = 'Connect to Pry remotely using EventMachine'
   s.description   = 'Connect to Pry remotely using EventMachine with tab-completion, paging, user auth and SSL'
-  s.homepage      = 'http://github.com/simulacre/pry-remote-em'
+  s.homepage      = 'https://github.com/gruis/pry-remote-em'
   s.email         = 'pry-remote-em@simulacre.org'
-  s.authors       = ['Caleb Crane']
+  s.authors       = ['Caleb Crane', 'Xanders']
   s.files         = Dir['lib/**/*.rb', 'bin/*', '*.md']
   s.require_paths = ['lib']
   s.executables   = ['pry-remote-em', 'pry-remote-em-broker']

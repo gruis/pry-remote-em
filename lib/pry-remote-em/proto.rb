@@ -1,3 +1,6 @@
+# Prefer MessagePack "out of the box" protocol over old JSON+Zlib+CRC
+# variant because of strange `expected "PRYEM" not "}PRYE"` errors
+# on long output over network (not localhost).
 require 'msgpack'
 
 module PryRemoteEm

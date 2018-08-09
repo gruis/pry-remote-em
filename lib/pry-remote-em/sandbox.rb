@@ -1,8 +1,9 @@
 module PryRemoteEm
+  # See Readme for Sandbox using guide
   class Sandbox
     @@last_errors = []
 
-    attr_accessor :pry
+    attr_accessor :pry, :server
 
     %w[puts putc print p pp].each do |method|
       define_method method do |*arguments|
@@ -15,19 +16,25 @@ module PryRemoteEm
     end
 
     def any_errors?
-      @@last_errors.any?
+      last_errors.any?
     end
 
     def last_error
-      @@last_errors.last
+      last_errors.last
     end
 
-    def self.add_error(exception, binding)
-      unless exception.kind_of?(Exception) && exception.backtrace && binding.kind_of?(Binding)
-        raise ArgumentError, 'exception with backtrace and binding expected'
+    def last_errors
+      @@last_errors
+    end
+
+    def self.add_error(exception, source_binding = nil)
+      unless exception.kind_of?(Exception) && exception.backtrace && (source_binding.nil? || source_binding.kind_of?(Binding))
+        raise ArgumentError, 'exception with backtrace and optional binding expected'
       end
 
-      exception.define_singleton_method(:binding) { binding }
+      return if @@last_errors.include?(exception)
+
+      exception.define_singleton_method(:source_binding) { source_binding } if source_binding
 
       @@last_errors.push(exception)
 

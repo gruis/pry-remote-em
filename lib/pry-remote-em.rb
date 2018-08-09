@@ -3,12 +3,13 @@ begin
 rescue LoadError
   warn 'OpenSSL support is not available'
 end
-require 'pry-remote-em/version'
-require 'pry-remote-em/proto'
-require 'eventmachine'
 require 'socket'
 require 'fiber'
 require 'uri'
+require 'eventmachine'
+require 'pry-remote-em/version'
+require 'pry-remote-em/proto'
+require 'pry-remote-em/server'
 
 module PryRemoteEm
   DEFAULT_SERVER_HOST = '127.0.0.1'
