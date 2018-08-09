@@ -495,10 +495,10 @@ $ pry-remote-em pryem://127.0.0.1:6464
 
 In sandbox you have those possibilities "out of the box":
 
-* `puts`, `putc`, `print`, `p` and `pp` methods almost as you expected.
-In other contexts they will use server's STDOUT, but in sandbox they
-will send all the data to client. Remember, you'll lost those methods
-out of the sandbox context:
+* `puts`, `putc`, `print`, `p` and `pp` methods works almost as you
+expected. In other contexts they will use server's STDOUT, but in
+sandbox they will send all the data to client. Remember, you'll lost
+those methods out of the sandbox context:
 
 ```shell
 $ pry-remote-em pryem://127.0.0.1:6463
@@ -739,13 +739,13 @@ E, [2012-02-11T19:23:40.770380 #36471] ERROR -- : refused to execute shell comma
 
 # Missing Features
 
-  - HTTP Transport ([ticket](https://github.com/simulacre/pry-remote-em/issues/12))
+  - HTTP Transport ([ticket](https://github.com/gruis/pry-remote-em/issues/12))
   - SSH key based authentication
   - Looking for connected users and their history
 
 # Issues
 
- Please post any bug reports or feature requests on [Github](https://github.com/simulacre/pry-remote-em/issues)
+ Please post any bug reports or feature requests on [Github](https://github.com/gruis/pry-remote-em/issues)
 
 # Copyright
 

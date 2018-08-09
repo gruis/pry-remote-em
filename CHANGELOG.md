@@ -60,12 +60,12 @@
 
 # 0.7.5
 
-* [#42](https://github.com/simulacre/pry-remote-em/pull/42) - Use bytesize String method instead of length in protocol. [distorhead](https://github.com/distorhead)
+* [#42](https://github.com/gruis/pry-remote-em/pull/42) - Use bytesize String method instead of length in protocol. [distorhead](https://github.com/distorhead)
 
 # 0.7.4
 
-* [#40](https://github.com/simulacre/pry-remote-em/pull/40) - require 'pry', not its parts [rking](https://github.com/rking)
-* [#39](https://github.com/simulacre/pry-remote-em/pull/39) - stagger_output needs Pry::Pager to be loaded in the parent scope [pcmantz](https://github.com/pcmantz)
+* [#40](https://github.com/gruis/pry-remote-em/pull/40) - require 'pry', not its parts [rking](https://github.com/rking)
+* [#39](https://github.com/gruis/pry-remote-em/pull/39) - stagger_output needs Pry::Pager to be loaded in the parent scope [pcmantz](https://github.com/pcmantz)
 
 # 0.7.3
 
@@ -120,12 +120,12 @@
 
 # 0.4.3
 
-* fixes https://github.com/simulacre/pry-remote-em/issues/26
-* fixes https://github.com/simulacre/pry-remote-em/issues/24
+* fixes https://github.com/gruis/pry-remote-em/issues/26
+* fixes https://github.com/gruis/pry-remote-em/issues/24
 
 # 0.4.2
 
-* fixes https://github.com/simulacre/pry-remote-em/issues/23
+* fixes https://github.com/gruis/pry-remote-em/issues/23
 
 # 0.4.1
 
