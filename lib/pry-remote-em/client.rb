@@ -1,24 +1,21 @@
 require 'uri'
 require 'pry-remote-em'
-begin
-  require 'pry-remote-em/client/keyboard'
-rescue LoadError => e
-  warn "[pry-remote-em] unable to load keyboard dependencies (termios); interactive shell commands disabled"
-end
-require "pry-remote-em/client/generic"
+require 'pry-remote-em/client/keyboard'
+require 'pry-remote-em/client/generic'
+require 'pry-remote-em/client/interactive_menu'
 require 'pry'
-require "readline"
-require 'highline'
+#require 'pry-coolline' rescue require 'readline'
 
 module PryRemoteEm
   module Client
     include EM::Deferrable
-    include Client::Generic
+    include Generic
+    include InteractiveMenu
     include Pry::Helpers::BaseHelpers
 
     class << self
-      def start(host = PryRemoteEm::DEFHOST, port = PryRemoteEM::DEFPORT, opts = {:tls => false})
-        EM.connect(host || PryRemoteEm::DEFHOST, port || PryRemoteEm::DEFPORT, PryRemoteEm::Client, opts) do |c|
+      def start(host = nil, port = nil, opts = {})
+        EM.connect(host || PryRemoteEm::DEFAULT_SERVER_HOST, port || PryRemoteEm::DEFAULT_SERVER_PORT, PryRemoteEm::Client, opts) do |c|
           c.callback { yield if block_given? }
           c.errback do |e|
             Kernel.puts "[pry-remote-em] connection failed\n#{e}"
@@ -42,11 +39,17 @@ module PryRemoteEm
     end
 
     def post_init
-      Readline.completion_proc = method(:auto_complete)
+      @input = if defined?(PryCoolline)
+        PryCoolline.make_coolline
+      else
+        Pry.history.load if Pry.config.history.should_load
+        Readline
+      end
+      @input.completion_proc = method(:auto_complete)
     end
 
     def ssl_handshake_completed
-      log.info("[pry-remote-em] TLS connection established")
+      log.info('[pry-remote-em] TLS connection established')
       @opts[:tls] = true
     end
 
@@ -60,9 +63,9 @@ module PryRemoteEm
         reconnect(uri.host, uri.port)
       else
         @unbound = true
-        log.info("[pry-remote-em] session terminated")
+        log.info('[pry-remote-em] session terminated')
         # prior to 1.0.0.b4 error? returns true here even when it's not
-        return succeed if Gem.loaded_specs["eventmachine"].version < Gem::Version.new("1.0.0.beta4")
+        return succeed if Gem.loaded_specs['eventmachine'].version < Gem::Version.new('1.0.0.beta4')
         error? ? fail : succeed
       end
     end
@@ -79,106 +82,17 @@ module PryRemoteEm
         log.info("\033[33m[pry-remote-em] no servers are registered with the broker\033[0m")
         Process.exit
       end
-      choice, proxy  = choose_server(list)
-      return unless choice
-      uri, name      = choice[0], choice[1]
+      url, proxy = choose_server(list)
+      return unless url
+      uri = URI.parse(url)
       if proxy
         @opts[:tls]  = uri.scheme == 'pryems'
         @negotiated  = false
         @tls_started = false
-        return send_proxy_connection(uri)
+        return send_proxy_connection(url)
       end
       @reconnect_to = uri
       close_connection
-    end
-
-    def choose_server(list)
-      highline    = HighLine.new
-      proxy       = false
-      choice      = nil
-      nm_col_len  = list.values.map(&:length).sort[-1] + 5
-      ur_col_len  = list.keys.map(&:length).sort[-1] + 5
-      header      = sprintf("| %-3s |  %-#{nm_col_len}s |  %-#{ur_col_len}s |", "", "name", "url")
-      border      = ("-" * header.length)
-      table       = [border, header, border]
-      list        = list.to_a.map{|url, name| [URI.parse(url), name]}
-      list        = filter_server_list(list)
-      list        = sort_server_list(list)
-      list.each_with_index do |(url, name), idx|
-        table << sprintf("|  %-2d |  %-#{nm_col_len}s |  %-#{ur_col_len}s |", idx + 1, name, url)
-      end
-      table << border
-      table   = table.join("\n")
-      Kernel.puts table
-      while choice.nil?
-        if proxy
-          question = "(q) to quit; (r) to refresh (c) to connect\nproxy to: "
-        else
-          question = "(q) to quit; (r) to refresh (p) to proxy\nconnect to: "
-        end
-        if (choice = opts.delete(:proxy))
-          proxy = true
-        else
-          choice = opts.delete(:connect) || highline.ask(question)
-          proxy = false
-        end
-
-        return close_connection if ['q', 'quit', 'exit'].include?(choice.downcase)
-        if ['r', 'reload', 'refresh'].include?(choice.downcase)
-          send_server_list
-          return nil
-        end
-        if ['c', 'connect'].include?(choice.downcase)
-          proxy = false
-          choice = nil
-          next
-        end
-        if ['p', 'proxy'].include?(choice.downcase)
-          proxy = true
-          choice = nil
-          next
-        end
-        choice = choice.to_i > 0 ?
-          list[choice.to_i - 1] :
-          list.find{|(url, name)| url.to_s == choice || name == choice }
-        log.error("\033[31mserver not found\033[0m") unless choice
-      end
-      [choice, proxy]
-    end
-
-    def sort_server_list(list)
-      type = opts[:sort] || :host
-      case type
-      when :name
-        list.sort { |a,b| a[1] <=> b[1] }
-      when :host
-        list.sort { |a,b| a[0].host <=> b[0].host }
-      when :ssl
-        list.sort { |a,b| b[0].scheme <=> a[0].scheme }
-      when :port
-        list.sort { |a,b| a[0].port <=> b[0].port }
-      else
-        list.sort { |a,b| a[0].host <=> b[0].host }
-      end
-    end
-
-    def filter_server_list(list)
-      if opts[:filter_host]
-        list = list.select { |url, name| url.host =~ opts[:filter_host] }
-      end
-      if opts[:filter_name]
-        list = list.select { |url, name| name =~ opts[:filter_name] }
-      end
-      if opts.include?(:filter_ssl)
-        list = opts[:filter_ssl] ?
-          list.select{|url, name| url.scheme == 'pryems' } :
-          list.select{|url, name| url.scheme == 'pryem' }
-      end
-      if list.empty?
-        log.info("\033[33m[pry-remote-em] no registered servers match the given filter\033[0m")
-        Process.exit
-      end
-      list
     end
 
     def receive_auth(a)
@@ -204,16 +118,22 @@ module PryRemoteEm
         @keyboard.bufferio(true)
         @keyboard.close_connection
       end
+      if c == 255 || c == 127
+        Kernel.puts 'command not found'
+      end
     end
 
     # TODO detect if the old pager behavior of Pry is supported and use it
     # through Pry.pager. If it's not then use the SimplePager.
     def pager
-      @pager ||= Pry::Pager::SimplePager.new($stdout)
+      pager_class = ENV['PRYEMNOPAGER'] ? Pry::Pager::NullPager : @opts[:pager] || Pry::Pager::SimplePager
+      @pager ||= pager_class.new(Pry::Output.new(Pry))
     end
 
     def receive_raw(r)
       pager.write(r)
+    rescue Pry::Pager::StopPaging
+      warn '[pry-remote-em] stop paging is not implemented, use PRYEMNOPAGER environment variable to avoid paging at all'
     end
 
     def receive_unknown(j)
@@ -221,7 +141,7 @@ module PryRemoteEm
     end
 
     def authenticate
-      return fail("[pry-remote-em] authentication required") unless @auth
+      return fail('[pry-remote-em] authentication required') unless @auth
       return fail("[pry-remote-em] can't authenticate before negotiation complete") unless @negotiated
       user, pass = @auth.call
       return fail("[pry-remote-em] expected #{@auth} to return a user and password") unless user && pass
@@ -229,6 +149,8 @@ module PryRemoteEm
     end # authenticate
 
     def auto_complete(word)
+      word = word.completed_word if defined?(Coolline) && word.kind_of?(Coolline)
+
       @waiting = Thread.current
       EM.next_tick { send_completion(word) }
       sleep
@@ -248,25 +170,40 @@ module PryRemoteEm
       readline(p)
     end
 
-    def readline(prompt)
+    def readline(prompt = @last_prompt)
+      @last_prompt = prompt
       if @negotiated && !@unbound
-        op       = proc { Readline.readline(prompt, !prompt.nil?) }
-        callback = proc do |l|
-          if '!!' == l[0..1]
+        operation = proc do
+          thread = Thread.current
+          old_trap = Signal.trap(:INT) { thread.raise Interrupt }
+          begin
+            @input.readline(prompt)
+          rescue Interrupt
+            send_clear_buffer
+            puts
+            :ignore_me
+          ensure
+            Signal.trap(:INT, old_trap)
+          end
+        end
+
+        callback  = proc do |l|
+          next if l == :ignore_me
+
+          add_to_history(l) unless l.nil? || l.empty?
+
+          if l.nil?
+            readline
+          elsif '^^' == l[0..1]
             send_msg_bcast(l[2..-1])
-          elsif '!' == l[0]
+          elsif '^' == l[0]
             send_msg(l[1..-1])
           elsif '.' == l[0]
-            if !Client.const_defined?(:Keyboard)
-              Kernel.puts "\033[31minteractive shell commands are not supported without termios\033[0m"
-              readline(prompt)
+            send_shell_cmd(l[1..-1])
+            if Gem.loaded_specs['eventmachine'].version < Gem::Version.new('1.0.0.beta4')
+              Kernel.puts "\033[1minteractive shell commands are not well supported when running on EventMachine prior to 1.0.0.beta4\033[0m"
             else
-              send_shell_cmd(l[1..-1])
-              if Gem.loaded_specs["eventmachine"].version < Gem::Version.new("1.0.0.beta4")
-                Kernel.puts "\033[1minteractive shell commands are not well supported when running on EventMachine prior to 1.0.0.beta4\033[0m"
-              else
-                @keyboard = EM.open_keyboard(Keyboard, self)
-              end
+              @keyboard = EM.open_keyboard(Keyboard, self)
             end
           elsif 'reset' == l.strip
             # TODO work with 'bundle exec pry-remote-em ...'
@@ -275,12 +212,19 @@ module PryRemoteEm
             exec("#{$0} #{ARGV.join(' ')}")
           else
             send_raw(l)
-          end # "!!" == l[0..1]
+          end
         end
-        EM.defer(op, callback)
+
+        EM.defer(operation, callback)
       end
     end # readline(prompt = @last_prompt)
 
+    def add_to_history(line)
+      if defined?(Readline) && @input == Readline
+        Readline::HISTORY.push(line)
+      end
+      # Nothing to do with Coolline, it just works
+    end
   end # module::Client
 end # module::PryRemoteEm
 

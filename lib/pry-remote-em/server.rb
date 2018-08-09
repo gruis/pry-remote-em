@@ -1,8 +1,11 @@
 require 'pry'
+require 'socket'
 require 'logger'
+require 'securerandom'
 require 'pry-remote-em'
 require 'pry-remote-em/broker'
 require 'pry-remote-em/server/shell_cmd'
+require 'pry-remote-em/sandbox'
 
 # How it works with Pry
 #
@@ -34,7 +37,7 @@ require 'pry-remote-em/server/shell_cmd'
 # http://www.igvita.com/2010/03/22/untangling-evented-code-with-ruby-fibers/
 module PryRemoteEm
   class << self
-    # Local PryRemoteEm EM signatures and server name indexed by url. Each
+    # Local PryRemoteEm servers, including EM signatures, indexed by id. Each
     # signature can be used with high level EM methods like EM.stop_server or
     # EM.get_sockname. If a server has been stopped EM.get_sockname will return
     # nil for that server's signature.
@@ -44,21 +47,23 @@ module PryRemoteEm
 
     # Safely stop one or more PryRemoteEm servers and remove them from the list
     # of servers.
-    # @param [String] id url or name
-    def stop_server(id)
-      if servers[id]
-        EM.stop_server(servers[id][0]) if EM.get_sockname(servers[id][0])
+    # @param [String, nil] argument id, url or name, use `nil` to stop them all
+    # @return [Hash] stopped servers if they were
+    def stop_server(argument = nil)
+      servers_to_stop = if argument
+        servers.select do |id, description|
+          argument == id || description[:urls].include?(argument) || argument == description[:name]
+        end
+      else
+        servers
+      end
+
+      servers_to_stop.each do |id, description|
+        EM.stop_server(description[:server]) if EM.get_sockname(description[:server])
         Broker.unregister(id)
         servers.delete(id)
-        return Array(id)
       end
-      servers.select{ |i, (sig, name)| name == id }.map do |i, (sig, name)|
-        EM.stop_server(sig) if EM.get_sockname(sig)
-        Broker.unregister(i)
-        servers.delete(i)
-        i
-      end
-    end # stop_server(id)
+    end
   end
 
   module Server
@@ -66,51 +71,41 @@ module PryRemoteEm
 
     class << self
       # Start a pry-remote-em server
-      # @param [Object] obj the object to bind pry to
-      # @param [String] ip the ip address to listen on
-      # @param [Fixnum, Symbol] port the port to listen on - if :auto the next available port will be taken
-      # @param [Hash] opts
-      # @option opts [Boolean] :tls require SSL encryption
-      # @option opts [Logger] :logger
-      # @option opts [Proc, Object] :auth require user authentication - see README
-      # @option opts [Boolean] :allow_shell_cmds
-      def run(obj, host = DEFHOST, port = DEFPORT, opts = {:tls => false})
-        tries = [port, opts[:port_fail]].include?(:auto) ? 100 : 1
-        port  = DEFPORT if :auto == port
-        # TODO raise a useful exception not RuntimeError
-        raise "root permission required for port below 1024 (#{port})" if port < 1024 && Process.euid != 0
-        begin
-          server = EM.start_server(host, port, PryRemoteEm::Server, obj, opts) do |pre|
-            Fiber.new {
-              begin
-                yield pre if block_given?
-                Pry.start(obj, :input => pre, :output => pre)
-              ensure
-                pre.close_connection
-              end
-            }.resume
-          end
-        rescue => e
-          # EM 1.0.0.beta4's message tells us the port is in use; 0.12.10 just says, 'no acceptor'
-          if (e.message.include?('port is in use') || e.message.include?('no acceptor')) && tries > 1
-            tries -= 1
-            port += 1
-            retry
-          end
-          raise "can't bind to #{host}:#{port} - #{e}"
-        end
-        url    = "#{opts[:tls] ? 'pryems' : 'pryem'}://#{host}:#{port}/"
-        name   = obj.send(:eval, 'self') rescue "#{obj}"
-        name   = Pry.view_clip(name)
-        PryRemoteEm.servers[url] = [server, name]
-        (opts[:logger] || ::Logger.new(STDERR)).info("[pry-remote-em] listening for connections on #{url}")
-        Broker.run(opts[:broker_host] || ENV['PRYEMBROKER'] || DEF_BROKERHOST, opts[:broker_port] || ENV['PRYEMBROKERPORT'] || DEF_BROKERPORT, opts) do |broker|
-          broker.register(url, name)
-          rereg = EM::PeriodicTimer.new(15) do
-            EM.get_sockname(server) ? broker.register(url, name) : nil #rereg.cancel
-          end
-        end # broker
-        url
+      # @param [Hash] options
+      # @option options [Object] :target Object to bind Pry session, default - PryRemoteEm::Sandbox instance
+      # @option options [String] :host The IP-address to listen on, default - 127.0.0.1 (same as PRYEMHOST environment variable)
+      # @option options [Fixnum, String, Symbol] :port The port to listen on - if :auto or 'auto' the next available port will be taken, default - 6463 (same as PRYEMPORT environment variable)
+      # @option options [String] :id Server's UUID, will be generated automatically unless you pass it explicitly
+      # @option options [Boolean] :tls require SSL encryption, default - false
+      # @option options [Logger] :logger Logger for Pry Server, default - STDERR
+      # @option options [Proc, Object] :auth require user authentication - see README
+      # @option options [Boolean] :allow_shell_cmds Allow shell commands or not, default - true
+      # @option options [Integer, Symbol] :port_fail set to :auto to search for available port in range from given port to port + 100, or pass explicit integer to use instaed of 100, default - 1
+      # @option options [String] :name Server name to show in broker list, default - object's inspect (same as PRYEMNAME environment variable)
+      # @option options [String] :external_url External URL to connect behind firewall, NAT, Docket etc. in form "pryem://my.host:6463", default - use given host and port and expand it to all interfaces in case of 0.0.0.0 (same as PRYEMURL environment variable)
+      # @option options [Integer] :heartbeat_interval Interval to send heartbeats and updated details to broker, default - 15 (same as PRYEMHBSEND environment variable)
+      # @option options [Boolean] :remote_broker Connect to remote broker instead of starting local one, default - false (same as PRYEMREMOTEBROKER environment variable)
+      # @option options [String] :broker_host Broker host to connect to, default - localhost
+      # @option options [String] :broker_port Broker port to connect to, default - 6462
+      # @option options [Hash] :details Optional details to pass to broker and show in table (should consist of string/symbol keys and simple serializable values)
+      def run(options = {}, &block)
+        description = options.dup
+        description[:target] ||= PryRemoteEm::Sandbox.new
+        description[:host] ||= ENV['PRYEMHOST'].nil? || ENV['PRYEMHOST'].empty? ? DEFAULT_SERVER_HOST : ENV['PRYEMHOST']
+        determine_port_and_tries(description)
+        determine_name(description)
+        description[:id] ||= SecureRandom.uuid
+        description[:logger] ||= ::Logger.new(STDERR)
+        description[:external_url] ||= ENV['PRYEMURL'] || "#{description[:tls] ? 'pryems' : 'pryem'}://#{description[:host]}:#{description[:port]}/"
+        description[:details] ||= {}
+        description[:allow_shell_cmds] = true if description[:allow_shell_cmds].nil?
+        description[:heartbeat_interval] ||= ENV['PRYEMHBSEND'].nil? || ENV['PRYEMHBSEND'].empty? ? HEARTBEAT_SEND_INTERVAL : ENV['PRYEMHBSEND']
+        description[:urls] = expand_url(description[:external_url])
+        description[:server] = start_server(description, &block)
+        description[:logger].info("[pry-remote-em] listening for connections on #{description[:external_url]}")
+        PryRemoteEm.servers[description[:id]] = description
+        register_in_broker(description)
+        return description
       end
 
       # The list of pry-remote-em connections for a given object, or the list of all pry-remote-em
@@ -130,10 +125,85 @@ module PryRemoteEm
       def unregister(obj, peer)
         peers(obj).tap {|plist| true while plist.delete(peer) }
       end
+
+      private
+
+      def determine_port_and_tries(description)
+        description[:port] ||= ENV['PRYEMPORT'].nil? || ENV['PRYEMPORT'].empty? ? DEFAULT_SERVER_PORT : ENV['PRYEMPORT']
+        description[:port] = :auto if description[:port] == 'auto'
+        description[:port] = description[:port].to_i if description[:port].kind_of?(String)
+        description[:tries] = [description[:port], description[:port_fail]].include?(:auto) ? 100 : description[:port_fail] || 1
+        description[:port] = DEFAULT_SERVER_PORT if description[:port] == :auto
+        # TODO raise a useful exception not RuntimeError
+        raise "root permission required for port below 1024 (#{port})" if description[:port] < 1024 && Process.euid != 0
+      end
+
+      def determine_name(description)
+        description[:name] ||= ENV['PRYEMNAME']
+        if description[:name].nil?
+          object = description[:target]
+          inner_object = object.kind_of?(Binding) ? object.send(:eval, 'self') : object
+          description[:name] = Pry.view_clip(inner_object)
+        else
+          description[:custom_name] = true
+        end
+        description[:name] = description[:name].first(57) + '...' if description[:name].size > 60
+      end
+
+      def expand_url(url)
+        return Array(url) if (uri = URI.parse(url)).host != '0.0.0.0'
+        Socket.ip_address_list.select(&:ipv4?).map(&:ip_address).map do |ip|
+          uri.clone.tap { |uri_copy| uri_copy.host = ip }.to_s
+        end
+      end
+
+      def start_server(description, &block)
+        EM.start_server(description[:host], description[:port], PryRemoteEm::Server, description) do |pre|
+          Fiber.new do
+            begin
+              yield pre if block_given?
+              Pry.hooks.add_hook :when_started, pre do |target, options, pry|
+                pry.pager = false
+                pry.config.prompt_name = description[:name] + ' ' if description[:custom_name]
+                if description[:target].is_a? PryRemoteEm::Sandbox
+                  description[:target].pry = pry
+                  description[:target].server = description
+                  pry.last_exception = description[:target].last_error if description[:target].any_errors?
+                end
+                description[:pry] = pry
+              end
+              Pry.start(description[:target], input: pre, output: pre)
+            ensure
+              pre.close_connection
+              Pry.hooks.delete_hook :when_started, pre
+            end
+          end.resume
+        end
+      rescue => error
+        # EM 1.0.0.beta4's message tells us the port is in use; 0.12.10 just says, 'no acceptor'
+        if (error.message.include?('port is in use') || error.message.include?('no acceptor')) && description[:tries] > 1
+          description[:tries] -= 1
+          description[:port] += 1
+          retry
+        end
+        raise "can't bind to #{description[:host]}:#{description[:port]} - #{error}"
+      end
+
+      def register_in_broker(description)
+        broker_description = { id: description[:id], urls: description[:urls], name: description[:name], details: description[:details] }
+        broker_options = { tls: description[:tls], remote_broker: description[:remote_broker], logger: description[:logger] }
+        Broker.run(description[:broker_host], description[:broker_port], broker_options) do |broker|
+          broker.register(broker_description)
+
+          rereg = EM::PeriodicTimer.new(description[:heartbeat_interval]) do
+            EM.get_sockname(description[:server]) ? broker.register(broker_description) : nil #rereg.cancel
+          end
+        end
+      end
     end # class << self
 
-    def initialize(obj, opts = {:tls => false})
-      @obj              = obj
+    def initialize(opts = {})
+      @obj              = opts[:target]
       @opts             = opts
       @allow_shell_cmds = opts[:allow_shell_cmds]
       @log              = opts[:logger] || ::Logger.new(STDERR)
@@ -162,7 +232,7 @@ module PryRemoteEm
         return fail("auth handler must take two arguments not (#{a.method(:call).arity})") unless a.method(:call).arity == 2
         @auth = a
       else
-        return error("auth handler objects must respond to :call, or :[]") unless a.respond_to?(:[])
+        return error('auth handler objects must respond to :call, or :[]') unless a.respond_to?(:[])
         @auth = lambda {|u,p| a[u] && a[u] == p }
       end
     end
@@ -174,10 +244,9 @@ module PryRemoteEm
 
     def post_init
       @lines = []
-      Pry.config.pager, @old_pager = false, Pry.config.pager
       @auth_required  = @auth
-      port, ip        = Socket.unpack_sockaddr_in(get_peername)
-      @log.info("[pry-remote-em] received client connection from #{ip}:#{port}")
+      @port, @ip        = Socket.unpack_sockaddr_in(get_peername)
+      @log.info("[pry-remote-em] received client connection from #{@ip}:#{@port}")
       # TODO include first level prompt in banner
       send_banner("PryRemoteEm #{VERSION} #{@opts[:tls] ? 'pryems' : 'pryem'}")
       @log.info("#{url} PryRemoteEm #{VERSION} #{@opts[:tls] ? 'pryems' : 'pryem'}")
@@ -197,22 +266,36 @@ module PryRemoteEm
 
     def peer_ip
       return @peer_ip if @peer_ip
-      return "" if get_peername.nil?
+      return '' if get_peername.nil?
       @peer_port, @peer_ip = Socket.unpack_sockaddr_in(get_peername)
       @peer_ip
     end
 
     def peer_port
       return @peer_port if @peer_port
-      return "" if get_peername.nil?
+      return '' if get_peername.nil?
       @peer_port, @peer_ip = Socket.unpack_sockaddr_in(get_peername)
       @peer_port
     end
 
+    def receive_clear_buffer
+      @opts[:pry].eval_string.replace('')
+      @last_prompt = @opts[:pry].select_prompt
+      send_last_prompt
+    end
+
     def receive_raw(d)
       return if require_auth
-      return send_last_prompt if d.nil? || d.empty?
-      @lines.push(*d.split("\n"))
+
+      return send_last_prompt if d.nil?
+
+      if d.empty?
+        @lines.push('')
+      else
+        lines = d.split("\n")
+        @lines.push(*lines)
+      end
+
       if @waiting
         f, @waiting = @waiting, nil
         f.resume(@lines.shift)
@@ -236,7 +319,7 @@ module PryRemoteEm
       else
        auth_fail(user, peer_ip)
         if @auth_tries <= 0
-          msg = "max authentication attempts reached"
+          msg = 'max authentication attempts reached'
           send_auth(msg)
           @log.debug("[pry-remote-em] #{msg} (#{peer_ip}:#{peer_port})")
           return close_connection_after_writing
@@ -278,7 +361,7 @@ module PryRemoteEm
 
     def receive_shell_sig(type)
       return if require_auth
-      type == :term && @shell_cmd.close_connection
+      @shell_cmd.close_connection if type == :int
     end
 
     def receive_unknown(j)
@@ -301,9 +384,8 @@ module PryRemoteEm
     end
 
     def unbind
-      Pry.config.pager  = @old_pager
       PryRemoteEm::Server.unregister(@obj, self)
-      @log.debug("[pry-remote-em] remote session terminated (#{peer_ip}:#{peer_port})")
+      @log.debug("[pry-remote-em] remote session terminated (#{@ip}:#{@port})")
     end
 
     def peers(all = false)
@@ -324,13 +406,13 @@ module PryRemoteEm
     # Sends a chat message to the client.
     def send_message(msg, from = nil)
       msg = "#{msg} (@#{from})" unless from.nil?
-      @auth_required ?  (after_auth {send_msg(msg)}) : send_msg(msg)
+      @auth_required ? (after_auth {send_msg(msg)}) : send_msg(msg)
     end
     #
     # Sends a chat message to the client.
     def send_bmessage(msg, from = nil)
       msg = "#{msg} (@#{from})" unless from.nil?
-      @auth_required ?  (after_auth {send_msg_bcast(msg)}) : send_msg_bcast(msg)
+      @auth_required ? (after_auth {send_msg_bcast(msg)}) : send_msg_bcast(msg)
     end
 
     # Callbacks for events on the server
@@ -390,7 +472,7 @@ module PryRemoteEm
     end
     alias :write :print
 
-    def puts(data = "")
+    def puts(data = '')
       s = data.to_s
       print(s[0] == "\n" ? s : s + "\n")
     end

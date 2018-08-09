@@ -19,7 +19,7 @@ end
 
 class Foo
   def initialize(auth)
-    binding.remote_pry_em('0.0.0.0', 1337, auth: auth, :port_fail => :auto)
+    binding.remote_pry_em('0.0.0.0', 1337, auth: auth, port_fail: :auto)
   end
 end
 
@@ -35,7 +35,7 @@ anon_obj = Class.new do
   end
 end
 
-log         = ::Logger.new(STDERR)
+log = ::Logger.new(STDERR)
 auth_logger = lambda do |pry|
   pry.auth_attempt do |user, ip|
     log.info("got an authentication attempt for #{user} from #{ip}")
@@ -49,24 +49,24 @@ auth_logger = lambda do |pry|
 end
 
 
-EM.run{
+EM.run do
   anon_obj.new.remote_pry_em('0.0.0.0')
   Foo.new(auth_hash)
-  anon_obj.new.remote_pry_em('0.0.0.0', :auto, :tls => true, :allow_shell_cmds => true)
-  anon_obj.new.remote_pry_em('0.0.0.0', :auto, :tls => true)
-  anon_obj.new.remote_pry_em('0.0.0.0', :auto, :tls => true, :allow_shell_cmds => true, :auth => auth_hash) do |pry|
+  anon_obj.new.remote_pry_em('0.0.0.0', :auto, tls: true, allow_shell_cmds: true)
+  anon_obj.new.remote_pry_em('0.0.0.0', :auto, tls: true)
+  anon_obj.new.remote_pry_em('0.0.0.0', :auto, tls: true, allow_shell_cmds: true, auth: auth_hash) do |pry|
     auth_logger.call(pry)
   end
-  anon_obj.new.remote_pry_em('0.0.0.0', :auto, :tls => true, :auth => auth_anon) do |pry|
+  anon_obj.new.remote_pry_em('0.0.0.0', :auto, tls: true, auth: auth_anon) do |pry|
     auth_logger.call(pry)
   end
-  anon_obj.new.remote_pry_em('0.0.0.0', :auto, :tls => true, :auth => Authenticator.new(auth_hash)) do |pry|
+  anon_obj.new.remote_pry_em('0.0.0.0', :auto, tls: true, auth: Authenticator.new(auth_hash)) do |pry|
     auth_logger.call(pry)
   end
-  anon_obj.new.remote_pry_em('0.0.0.0', :auto, :auth => auth_hash) do |pry|
+  anon_obj.new.remote_pry_em('0.0.0.0', :auto, auth: auth_hash) do |pry|
     auth_logger.call(pry)
   end
   anon_obj.new.remote_pry_em('0.0.0.0', :auto)
-}
+end
 
 # TODO use rspec

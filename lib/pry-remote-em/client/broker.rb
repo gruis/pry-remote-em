@@ -1,4 +1,4 @@
-require "pry-remote-em/client/generic"
+require 'pry-remote-em/client/generic'
 
 module PryRemoteEm
   module Client
@@ -22,11 +22,14 @@ module PryRemoteEm
       end
 
       def unbind
-        log.info("[pry-remote-em broker-client] broker connection unbound starting a new one")
+        return if EventMachine.stopping?
+
         # Give the existing broker a little time to release the port. Even if the
         # restart here fails the next time a server tries to register, a new client
         # will be created; when that fails Broker#restart will be called again.
-        EM::Timer.new(rand(0.9)) do
+        timeout = ENV['PRYEMBROKERTIMEOUT'].nil? || ENV['PRYEMBROKERTIMEOUT'].empty? ? RECONNECT_TO_BROKER_TIMEOUT : ENV['PRYEMBROKERTIMEOUT']
+        log.info("[pry-remote-em broker-client] broker connection unbound; starting a new one in a #{timeout} seconds")
+        EM::Timer.new(timeout) do
           PryRemoteEm::Broker.restart
         end
       end
