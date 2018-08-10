@@ -34,7 +34,13 @@ module PryRemoteEm
         run(@host, @port, @opts) do
           PryRemoteEm.servers.each do |id, description|
             next unless EM.get_sockname(description[:server])
-            register(id: description[:id], urls: description[:urls], name: description[:name], details: description[:details])
+            register(
+              id: description[:id],
+              urls: description[:urls],
+              name: description[:name],
+              details: description[:details],
+              metrics: PryRemoteEm::Metrics.list
+            )
           end
         end
       end
@@ -53,7 +59,7 @@ module PryRemoteEm
       end
 
       def register(description)
-        client { |c| c.send_register_server(description[:id], description[:urls], description[:name], description[:details]) }
+        client { |c| c.send_register_server(description[:id], description[:urls], description[:name], description[:details], description[:metrics]) }
       end
 
       def unregister(id)
@@ -69,6 +75,7 @@ module PryRemoteEm
       def update_server(server, description)
         server.update(urls: description[:urls], name: description[:name])
         server[:details].update(description[:details])
+        server[:metrics].update(description[:metrics])
       end
 
       def unregister_server(id)
@@ -148,9 +155,9 @@ module PryRemoteEm
       send_server_list(Broker.servers)
     end
 
-    def receive_register_server(id, urls, name, details)
+    def receive_register_server(id, urls, name, details, metrics)
       @ids.push(id)
-      description = { urls: urls, name: name, details: details }
+      description = { urls: urls, name: name, details: details, metrics: metrics }
       Broker.hbeats[id] = Time.new
       server = Broker.servers[id]
       if server

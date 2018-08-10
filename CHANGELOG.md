@@ -1,3 +1,12 @@
+# 1.1.0
+
+* Release separated gem version for JRuby because ruby-termios does not work on this platform
+* Add `source_timestamp` to errors stored in sandbox
+* Add `error_history` and `error_classes` methods to sandbox to view error list with comfort
+* Add `PryRemoteEm::Sandbox.ignore_errors` to avoid capturing useless errors
+* Add simple metrics collector, default `errors` metric from sandbox catcher, option to view metrics in the broker list (see Readme)
+* Show server details and metrics on connect if any
+
 # 1.0.0
 
 ## Breaking changes

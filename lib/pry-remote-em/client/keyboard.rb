@@ -1,4 +1,4 @@
-require 'termios'
+require 'termios' unless RUBY_PLATFORM =~ /java/
 
 module PryRemoteEm
   module Client
@@ -31,7 +31,7 @@ module PryRemoteEm
       # In unbuffered mode read and select will not wait for "\n"; also will not echo characters.
       # This probably does not work on Windows.
       def bufferio(enable)
-        return if (enable && @buff_enabled) || (!enable && !@buff_enabled)
+        return if !defined?(Termios) || enable && @buff_enabled || !enable && !@buff_enabled
         attr = Termios.getattr($stdin)
         enable ? (attr.c_lflag |= Termios::ICANON | Termios::ECHO) : (attr.c_lflag &= ~(Termios::ICANON|Termios::ECHO))
         Termios.setattr($stdin, Termios::TCSANOW, attr)

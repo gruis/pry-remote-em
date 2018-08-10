@@ -77,7 +77,7 @@ module PryRemoteEm
 
     def receive_start_tls; end
 
-    def receive_register_server(id, urls, name, details); end
+    def receive_register_server(id, urls, name, details, metrics); end
     def receive_unregister_server(id); end
     def receive_server_list(list); end
     def receive_server_reload_list; end
@@ -125,8 +125,8 @@ module PryRemoteEm
       send_object({tls: true})
     end
 
-    def send_register_server(id, urls, name, details)
-      send_object({rs: [id, urls, name, details]})
+    def send_register_server(id, urls, name, details, metrics)
+      send_object({rs: [id, urls, name, details, metrics]})
     end
     def send_unregister_server(id)
       send_object({urs: id})

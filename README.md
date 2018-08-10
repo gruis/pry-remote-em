@@ -469,6 +469,10 @@ $ pry-remote-em -P --sn -d environment
 (q) to quit; (r) to refresh; (c) to connect without proxy
 proxy to: 1
 [pry-remote-em] remote is PryRemoteEm 1.0.0 pryem
+
+Server details:
+  environment: staging
+
 [1] Microservice A (sandbox)> u 13
 => {"id"=>13, "violations"=>4, "status"=>"active"}
 [2] Microservice A (sandbox)> @my_bad_user = _
@@ -480,6 +484,10 @@ proxy to: 1
 $
 $ pry-remote-em pryem://127.0.0.1:6463
 [pry-remote-em] remote is PryRemoteEm 1.0.0 pryem
+
+Server details:
+  environment: staging
+
 [1] Microservice A (sandbox)> @my_bad_user
 => {"id"=>13, "violations"=>4, "status"=>"banned"}
 [2] Microservice A (sandbox)> exit
@@ -487,6 +495,10 @@ $ pry-remote-em pryem://127.0.0.1:6463
 $
 $ pry-remote-em pryem://127.0.0.1:6464
 [pry-remote-em] remote is PryRemoteEm 1.0.0 pryem
+
+Server details:
+  environment: staging
+
 [1] Microservice A (sandbox)> ping :A # Or you can use it to check infrastructure and perform custom communications between servers
 => "pong"
 [2] Microservice A (sandbox)> exit
@@ -554,19 +566,28 @@ Then, in shell:
 $ pry-remote-em -P --sn -d hostname
 [pry-remote-em] client connected to pryem://127.0.0.1:6462/
 [pry-remote-em] remote is PryRemoteEm 1.0.0 pryem
-------------------------------------
-|     |  name         |  hostname  |
-------------------------------------
-|  1  |  Demo Server  |  local     |
-------------------------------------
+---------------------------------------------
+|     |  name         |  hostname  | errors |
+---------------------------------------------
+|  1  |  Demo Server  |  local     | 1      |
+---------------------------------------------
 (q) to quit; (r) to refresh; (c) to connect without proxy
 proxy to: 1
 [pry-remote-em] remote is PryRemoteEm 1.0.0 pryem
+
+Server details:
+  hostname: local
+
+Server metrics:
+  errors: 1
+
 [1] Demo Server (sandbox)> any_errors?
 => true
 [2] Demo Server (sandbox)> last_error
 => #<ZeroDivisionError: divided by 0>
-[3] Demo Server (sandbox)> wtf?
+[3] Demo Server (sandbox)> last_error.source_timestamp
+=> 2018-08-09 14:53:19 UTC
+[4] Demo Server (sandbox)> wtf?
 Exception: ZeroDivisionError: divided by 0
 --
 0: demo_server.rb:13:in `/'
@@ -577,8 +598,8 @@ Exception: ZeroDivisionError: divided by 0
 5: /usr/local/lib/ruby/gems/2.4.0/gems/eventmachine-1.2.7/lib/eventmachine.rb:195:in `run_machine'
 6: /usr/local/lib/ruby/gems/2.4.0/gems/eventmachine-1.2.7/lib/eventmachine.rb:195:in `run'
 7: demo_server.rb:17:in `<main>'
-[4] Demo Server (sandbox)> cd last_error.source_binding
-[5] Demo Server (main):1> whereami
+[5] Demo Server (sandbox)> cd last_error.source_binding
+[6] Demo Server (main):1> whereami
 
 From: /Users/user/Projects/demo/demo_server.rb @ line 12 Object#danger_mathod:
 
@@ -588,14 +609,139 @@ From: /Users/user/Projects/demo/demo_server.rb @ line 12 Object#danger_mathod:
     14:   end
     15: end
 
-[6] Demo Server (main):1> ls
+[7] Demo Server (main):1> ls
 self.methods: inspect  to_s
 locals: _  __  _dir_  _ex_  _file_  _in_  _out_  _pry_  a  b
-[7] Demo Server (main):1> a
+[8] Demo Server (main):1> a
 => 1
-[8] Demo Server (main):1> b
+[9] Demo Server (main):1> b
 => 0
 ```
+
+There is maximum number of errors to store in sandbox to avoid
+memory leaks. It is 100 by default, but you can tune it with
+PRYEMSANDBOXERRORS environment variable. You can see simple log
+about errors in memory (not from server start) and also statistics
+about errors class from server start (not in memory):
+
+```shell
+[1] Demo Server (sandbox)> error_history
+No errors, yay!
+[2] Demo Server (sandbox)> 3.times { 1/0 rescue PryRemoteEm::Sandbox.add_error($!) }
+=> nil
+[3] Demo Server (sandbox)> undefined_method rescue PryRemoteEm::Sandbox.add_error($!)
+=> nil
+[4] Demo Server (sandbox)> error_history
+2018-08-10 10:25:21 +0300 ZeroDivisionError: divided by 0
+2018-08-10 10:25:21 +0300 ZeroDivisionError: divided by 0
+2018-08-10 10:25:21 +0300 ZeroDivisionError: divided by 0
+2018-08-10 10:25:32 +0300 NameError: undefined local variable or method `unde...
+=> nil
+[5] Demo Server (sandbox)> error_classes
+ZeroDivisionError: 3
+NameError: 1
+=> nil
+[6] Demo Server (sandbox)> 100.times { undefined_method rescue PryRemoteEm::Sandbox.add_error($!) }
+=> 100
+[7] Demo Server (sandbox)> last_errors.size
+=> 100
+[8] Demo Server (sandbox)> error_classes
+ZeroDivisionError: 3
+NameError: 101
+[9] Demo Server (sandbox)> error_history
+2018-08-10 10:35:17 +0300 NameError: undefined local variable or method `unde...
+2018-08-10 10:35:17 +0300 NameError: undefined local variable or method `unde...
+... 100 entries total
+```
+
+You can also ignore some error classes. For example, you already
+monitor database disconnections with another tool and don't
+interested in user's NotFound excaptions:
+
+```ruby
+PryRemoteEm::Sandbox.ignore_errors.push ActiveRecord::ConnectionTimeoutError, ActiveRecord::RecordNotFound
+User.find(-1) rescue PryRemoteEm::Sandbox.add_error($!)
+PryRemoteEm::Sandbox.last_errors # => []
+```
+
+* Simple metrics collector. It can store some instance-specific
+integers like requests or errors counts, number of connected users,
+latencies, reconnections, cache size etc. It is not full-featured
+monitoring solution, but much better than nothing, and also it is
+super-simple to use. Just call following methods from anywhere
+in your code:
+
+```ruby
+Metrics = PryRemoteEm::Metrics # Just simplify naming, not necessarily
+Metrics.add :requests # Add 1 to `requests` metric, starting from 0
+Metrics.add :profit, 42 # Add custom value
+Metrics.reduce :waiting_jobs # Using custom value is possible too (pass positive numbers)
+Metrics.maximum :daily_online, current_online # Set new value only if it is bigger than current
+EM.add_periodic_timer(1.day) { Metrics.set :daily_online, 0 } # Set some value explicitly
+Metrics.minimum :best_latency, last_latency # Set new value only if it is smaller than current
+Metrics.any? # => true
+Metrics.get :requests # => 100500
+Metrics.list # Hash with current values
+```
+
+You can see all the metrics when connecting to a server and also
+in the sandbox console with `show_metrics` method:
+
+```shell
+$ pry-remote-em pryem://127.0.0.1:6463
+[pry-remote-em] remote is PryRemoteEm 1.0.0 pryem
+
+Server details:
+  hostname: local
+
+Server metrics:
+  requests: 100500
+  profit: 300000000
+  waiting_jobs: 0
+  daily_online: 70000
+  best_latency: 0.003
+
+[1] Demo Server (sandbox)> show_metrics
+requests: 100500
+profit: 300000000
+waiting_jobs: 0
+daily_online: 70000
+best_latency: 0.003
+```
+
+You also can see the metrics in the broker's table with a new option:
+
+```shell
+$ pry-remote-em -P --sn -d hostname -m requests
+[pry-remote-em] client connected to pryem://127.0.0.1:6462/
+[pry-remote-em] remote is PryRemoteEm 1.0.0 pryem
+-----------------------------------------------
+|     |  name         |  hostname  | requests |
+-----------------------------------------------
+|  1  |  Demo Server  |  local     | 100500   |
+-----------------------------------------------
+(q) to quit; (r) to refresh; (c) to connect without proxy
+proxy to: q
+$
+$ pry-remote-em -P --sn -d hostname -m @
+[pry-remote-em] client connected to pryem://127.0.0.1:6462/
+[pry-remote-em] remote is PryRemoteEm 1.0.0 pryem
+----------------------------------------------------------
+|     |  name         |  hostname  | metrics             |
+----------------------------------------------------------
+|  1  |  Demo Server  |  local     | requests: 100500    |
+|     |               |            | profit: 300000000   |
+|     |               |            | waiting_jobs: 0     |
+|     |               |            | daily_online: 70000 |
+|     |               |            | best_latency: 0.003 |
+----------------------------------------------------------
+(q) to quit; (r) to refresh; (c) to connect without proxy
+proxy to:
+```
+
+One metric, `errors`, is enabled by default and will be shown in the
+broker's table if it was incremented at least once. It will be
+incremented on `PryRemoteEm::Sandbox.add_error` call.
 
 * `server` method to access PryRemoteEm::Server description object.
 For example, it can be useful for changing `details`:
@@ -632,6 +778,10 @@ $ pry-remote-em -P --sn -d hand_check
 --------------------------------------
 (q) to quit; (r) to refresh; (c) to connect without proxy
 proxy to: 3
+
+Server details:
+  hand_check: false
+
 [1] Demo Server (sandbox)> HealthChecker.all_ok?
 => true
 [2] Demo Server (sandbox)> server[:details][:hand_check] = true

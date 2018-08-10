@@ -45,6 +45,10 @@ OptionParser.new do |opts|
     options[:show_details] = key
   end
 
+  opts.on('-m', '--metrics KEY', "show value from server's metrics by given key in a third column, use @ to show all metrics, default - errors (if any)") do |key|
+    options[:show_metrics] = key
+  end
+
   opts.on('-i', '--ignore-localhost', 'filter out localhost urls from list') do
     options[:ignore_localhost] = true
   end

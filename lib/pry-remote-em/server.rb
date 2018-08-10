@@ -147,7 +147,7 @@ module PryRemoteEm
         else
           description[:custom_name] = true
         end
-        description[:name] = description[:name].first(57) + '...' if description[:name].size > 60
+        description[:name].sub!(/(?<=^.{57}).{4,}$/, '...')
       end
 
       def expand_url(url)
@@ -189,8 +189,18 @@ module PryRemoteEm
       end
 
       def register_in_broker(description)
-        broker_description = { id: description[:id], urls: description[:urls], name: description[:name], details: description[:details] }
-        broker_options = { tls: description[:tls], remote_broker: description[:remote_broker], logger: description[:logger] }
+        broker_description = {
+          id: description[:id],
+          urls: description[:urls],
+          name: description[:name],
+          details: description[:details],
+          metrics: PryRemoteEm::Metrics.list
+        }
+        broker_options = {
+          tls: description[:tls],
+          remote_broker: description[:remote_broker],
+          logger: description[:logger]
+        }
         Broker.run(description[:broker_host], description[:broker_port], broker_options) do |broker|
           broker.register(broker_description)
 
@@ -248,6 +258,16 @@ module PryRemoteEm
       @log.info("[pry-remote-em] received client connection from #{@ip}:#{@port}")
       # TODO include first level prompt in banner
       send_banner("PryRemoteEm #{VERSION} #{@opts[:tls] ? 'pryems' : 'pryem'}")
+      need_new_line = false
+      if @opts[:details].any?
+        send_raw("\nServer details:\n#{@opts[:details].map { |key, value| "  #{key}: #{value}" } * "\n"}\n")
+        need_new_line = true
+      end
+      if PryRemoteEm::Metrics.any?
+        send_raw("\nServer metrics:\n#{PryRemoteEm::Metrics.list.map { |key, value| "  #{key}: #{value}" } * "\n"}\n")
+        need_new_line = true
+      end
+      send_raw("\n") if need_new_line
       @log.info("#{url} PryRemoteEm #{VERSION} #{@opts[:tls] ? 'pryems' : 'pryem'}")
       @opts[:tls] ? start_tls : (@auth_required && send_auth(false))
       PryRemoteEm::Server.register(@obj, self)
@@ -394,7 +414,7 @@ module PryRemoteEm
     end
 
     def send_last_prompt
-      @auth_required ? (after_auth { send_prompt(@last_prompt) }) :  send_prompt(@last_prompt)
+      @auth_required ? (after_auth { send_prompt(@last_prompt) }) : send_prompt(@last_prompt)
     end
 
     def after_auth(&blk)

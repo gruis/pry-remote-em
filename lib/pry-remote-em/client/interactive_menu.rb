@@ -11,21 +11,29 @@ module PryRemoteEm
         sc_col      = list.map { |id, server| second_column_for_server(server) }
         sc_col_name = opts[:show_details] == '@' ? 'details' : opts[:show_details] || 'url'
         sc_col_len  = [sc_col.flatten.map(&:size).max || 1, sc_col_name.size].max
-        header      = sprintf("| %-3s |  %-#{nm_col_len}s  |  %-#{sc_col_len}s  |", '', 'name', sc_col_name)
+        show_th_col = opts[:show_metrics] || list.any? { |id, server| server.has_key?('metrics') && server['metrics']['errors'] }
+        if show_th_col
+          th_col      = list.map { |id, server| third_column_for_server(server) }
+          th_col_name = opts[:show_metrics] == '@' ? 'metrics' : opts[:show_metrics] || 'errors'
+          th_col_len  = [th_col.flatten.map(&:size).max || 1, th_col_name.size].max
+        end
+        formatter   = "| %-3s |  %-#{nm_col_len}s  |  %-#{sc_col_len}s  |#{"  %-#{th_col_len}s  |" if show_th_col}"
+        header      = sprintf(formatter, '', 'name', sc_col_name, *th_col_name)
         border      = ('-' * header.length)
         table       = [border, header, border]
         list        = list.to_a
         list        = filter_server_list(list)
         list        = sort_server_list(list)
         list.each.with_index do |(id, server), index|
-          column = second_column_for_server(server)
+          index_column = [(index + 1).to_s]
+          first_column = [server['name']]
+          second_column = second_column_for_server(server)
+          third_column = third_column_for_server(server) if show_th_col
 
-          table << sprintf("|  %-2d |  %-#{nm_col_len}s  |  %-#{sc_col_len}s  |", index + 1, server['name'], column.first)
+          lines = show_th_col ? [second_column.size, third_column.size].max : second_column.size
 
-          if column.size > 1
-            column[1..-1].each do |element|
-              table << sprintf("|  %-2s |  %-#{nm_col_len}s  |  %-#{sc_col_len}s  |", '', '', element)
-            end
+          lines.times do |index|
+            table << sprintf(formatter, index_column[index] || '', first_column[index] || '', second_column[index] || '', *(show_th_col ? third_column[index] || '' : nil))
           end
         end
         table << border
@@ -150,21 +158,35 @@ module PryRemoteEm
       end
 
       def second_column_for_server(server)
-        column = case opts[:show_details]
+        data = case opts[:show_details]
         when nil then filtered_urls_list_for_server(server)
         when '@' then server['details']
         else server['details'][opts[:show_details]]
         end
 
-        case column
-        when Array then column.map(&:to_s)
-        when Hash then column.map { |key, value| "#{key}: #{value}" }
-        else [column.to_s]
-        end
+        prepare_data_for_table(data)
       end
 
       def filtered_urls_list_for_server(server)
         opts[:ignore_localhost] ? server['urls'].reject { |url| %w[localhost 127.0.0.1 ::1].include?(URI.parse(url).host) } : server['urls']
+      end
+
+      def third_column_for_server(server)
+        data = case opts[:show_metrics]
+        when nil then server['metrics']['errors']
+        when '@' then server['metrics']
+        else server['metrics'][opts[:show_metrics]]
+        end
+
+        prepare_data_for_table(data)
+      end
+
+      def prepare_data_for_table(data)
+        case data
+        when Array then data.map(&:to_s)
+        when Hash then data.map { |key, value| "#{key}: #{value}" }
+        else [data.to_s]
+        end
       end
     end # module::InteractiveMenu
   end # module::Client
