@@ -1,3 +1,7 @@
+# 1.1.1
+
+* Fix `java.lang.IncompatibleClassChangeError: Found class jline.Terminal, but interface was expected` by adding `rb-readline` to dependencies on JRuby version
+
 # 1.1.0
 
 * Release separated gem version for JRuby because ruby-termios does not work on this platform
