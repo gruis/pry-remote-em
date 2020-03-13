@@ -60,6 +60,7 @@ module PryRemoteEm
 
       servers_to_stop.each do |id, description|
         EM.stop_server(description[:server]) if EM.get_sockname(description[:server])
+        description[:heartbeat_timer].cancel
         Broker.unregister(id)
         servers.delete(id)
       end
@@ -202,10 +203,13 @@ module PryRemoteEm
           logger: description[:logger]
         }
         Broker.run(description[:broker_host], description[:broker_port], broker_options) do |broker|
+          description[:broker] = broker
+
           broker.register(broker_description)
 
-          rereg = EM::PeriodicTimer.new(description[:heartbeat_interval]) do
-            EM.get_sockname(description[:server]) ? broker.register(broker_description) : nil #rereg.cancel
+          description[:heartbeat_timer] = EM::PeriodicTimer.new(description[:heartbeat_interval]) do
+            next description[:heartbeat_timer].cancel unless EM.get_sockname(description[:server])
+            broker.register(broker_description)
           end
         end
       end

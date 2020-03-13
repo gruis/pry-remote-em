@@ -78,9 +78,9 @@ module PryRemoteEm
         server[:metrics].update(description[:metrics])
       end
 
-      def unregister_server(id)
+      def unregister_server(id, reason: nil)
         server = servers.delete(id) or return
-        log.warn("[pry-remote-em broker] unregister #{id} #{server.inspect}")
+        log.warn("[pry-remote-em broker] unregister by #{reason || 'unknown reason'} #{id} #{server.inspect}")
         timer = timers.delete(id)
         timer.cancel if timer
         hbeats.delete(id)
@@ -90,7 +90,7 @@ module PryRemoteEm
         interval = ENV['PRYEMHBCHECK'].nil? || ENV['PRYEMHBCHECK'].empty? ? HEARTBEAT_CHECK_INTERVAL : ENV['PRYEMHBCHECK']
         timers[id] ||= EM::PeriodicTimer.new(interval) do
           if !hbeats[id] || (Time.new - hbeats[id]) > 20
-            unregister_server(id)
+            unregister_server(id, reason: 'heartbeats checker')
           end
         end
       end
@@ -169,7 +169,7 @@ module PryRemoteEm
 
     def receive_unregister_server(id)
       server = Broker.servers[id]
-      Broker.unregister_server(id) if server
+      Broker.unregister_server(id, reason: 'remote command') if server
     end
 
     def receive_proxy_connection(url)
@@ -222,7 +222,7 @@ module PryRemoteEm
 
     def unbind
       @ids.each do |id|
-        Broker.unregister_server(id)
+        Broker.unregister_server(id, reason: 'disconnection')
       end
     end
   end # module::Broker

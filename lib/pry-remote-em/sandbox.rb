@@ -30,8 +30,8 @@ module PryRemoteEm
     end
 
     def self.add_error(exception, source_binding = nil)
-      unless exception.kind_of?(Exception) && exception.backtrace && (source_binding.nil? || source_binding.kind_of?(Binding))
-        raise ArgumentError, 'exception with backtrace and optional binding expected'
+      unless exception.kind_of?(Exception) && (source_binding.nil? || source_binding.kind_of?(Binding))
+        raise ArgumentError, 'exception and optional binding expected'
       end
 
       return if @@last_errors.map(&:object_id).include?(exception.object_id) || @@ignore_errors.include?(exception.class)
@@ -83,6 +83,6 @@ module PryRemoteEm
       'sandbox'
     end
 
-    Pry.config.prompt_safe_objects.push(self)
+    Pry.config.prompt_safe_objects&.push(self)
   end
 end

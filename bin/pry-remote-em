@@ -22,14 +22,14 @@ OptionParser.new do |opts|
     if host =~ /^pryems?:\/\//
       ARGV.push(host)
     else
-      options[:filter_host] = Regexp.new(host)
+      options[:filter_host] = Regexp.new(host, Regexp::IGNORECASE)
     end
   end
   opts.on('--fn NAME', '--filter-name NAME', 'only show servers with a matching name (regexp)') do |name|
     if name =~ /^pryems?:\/\//
       ARGV.push(name)
     else
-      options[:filter_name] = Regexp.new(name)
+      options[:filter_name] = Regexp.new(name, Regexp::IGNORECASE)
     end
   end
   opts.on('--[no-]fs', '--[no-]filter-ssl', 'show only servers that support ssl') do |ssl|
